@@ -88,5 +88,18 @@ def test_cors_accepts_vercel_origins_and_preview_regex(monkeypatch) -> None:
             preview_res.headers.get("access-control-allow-origin")
             == "https://airwise-git-main-user.vercel.app"
         )
+
+        # Empty CORS_ORIGIN_REGEX="" must become None and NOT allow arbitrary origins
+        monkeypatch.setenv("CORS_ORIGIN_REGEX", "")
+        monkeypatch.setenv("CORS_ORIGINS", "https://airwise.vercel.app")
+        get_settings.cache_clear()
+        strict_app = create_app()
+        strict_client = TestClient(strict_app)
+        blocked_res = strict_client.get(
+            "/api/v1/health",
+            headers={"Origin": "https://untrusted.example.com"},
+        )
+        assert blocked_res.status_code == 200
+        assert blocked_res.headers.get("access-control-allow-origin") is None
     finally:
         get_settings.cache_clear()

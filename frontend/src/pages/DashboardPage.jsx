@@ -14,6 +14,7 @@ export default function DashboardPage({
   airQuality,
   airQualityLoading,
   airQualityError,
+  refreshCooldownSeconds = 0,
   onRetryAirQuality,
   familyProfile,
   familyLoading,
@@ -24,9 +25,9 @@ export default function DashboardPage({
     <div className="space-y-6">
       {airQualityError && airQuality && (
         <ErrorBanner
-          title="Live refresh failed"
+          title="Backend Unavailable for Live Refresh"
           message={airQualityError}
-          onRetry={onRetryAirQuality}
+          onRetry={refreshCooldownSeconds > 0 ? undefined : onRetryAirQuality}
         />
       )}
 
@@ -43,6 +44,7 @@ export default function DashboardPage({
         airQuality={airQuality}
         loading={airQualityLoading}
         error={airQualityError}
+        refreshCooldownSeconds={refreshCooldownSeconds}
         onRetry={onRetryAirQuality}
       />
 

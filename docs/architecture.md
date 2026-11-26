@@ -16,6 +16,7 @@
 - **Freshness (`data_status`)**: Explicitly distinguishes `live`, `cached`, and `unavailable`.
 - **Value Kind (`value_kind`)**: Explicitly identifies `observed` (direct ground sensors, currently N/A from Open-Meteo), `estimated` (Open-Meteo CAMS atmospheric model current/past hours), and `forecast` (upcoming model hours).
 - **Stale & API Warnings**: Flags `is_stale` when cached telemetry ages past `AIR_QUALITY_STALE_WARNING_SECONDS` or when a live refresh fails and falls back to expired cached telemetry (`api_warning` + `stale_reason`). When no valid data exists, returns `unavailable` with `null` readings.
+- **Rate-Limit Resilience & Request Coalescing**: [`OpenMeteoAirQualityService`](../backend/app/services/open_meteo.py) and [`LocationSearchService`](../backend/app/services/locations.py) coalesce concurrent identical upstream calls (`AsyncRequestCoalescer`), cache responses by `(latitude, longitude, timezone)` / normalized city query, apply bounded exponential backoff with jitter while respecting `Retry-After` on HTTP `429`, and store a short-lived negative cooldown cache to prevent upstream request storms. The frontend pairs this with in-flight GET deduplication, debounced city search, and a manual refresh cooldown.
 
 ## Environment Variables
 

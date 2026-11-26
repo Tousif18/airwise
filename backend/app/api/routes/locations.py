@@ -1,10 +1,10 @@
-"""Location presets and geocoding search endpoints."""
+"""Location presets and cached geocoding search endpoints."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.core.config import get_settings
+from app.core.dependencies import get_location_search_service
 from app.schemas.air_quality import DataStatus, LocationSearchResponse
-from app.services.locations import get_preset_locations, search_locations
+from app.services.locations import LocationSearchService, get_preset_locations
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -21,6 +21,7 @@ async def list_preset_locations() -> LocationSearchResponse:
 @router.get("/search", response_model=LocationSearchResponse)
 async def search_city_locations(
     q: str = Query(..., min_length=1, max_length=80, description="City or neighborhood name"),
+    location_service: LocationSearchService = Depends(get_location_search_service),
 ) -> LocationSearchResponse:
-    """Search matching cities via Open-Meteo Geocoding API."""
-    return await search_locations(query=q, settings=get_settings())
+    """Search matching cities via cached Open-Meteo Geocoding API."""
+    return await location_service.search(query=q)

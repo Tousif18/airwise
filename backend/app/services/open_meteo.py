@@ -1,6 +1,11 @@
-"""Open-Meteo Air Quality API client with CPCB AQI, value kinds, and stale warnings."""
+"""Open-Meteo Air Quality API client with CPCB AQI, coalescing, 429 backoff, and stale warnings."""
 
+import asyncio
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+import math
+import random
 from typing import Any
 import httpx
 
@@ -14,7 +19,7 @@ from app.schemas.air_quality import (
     PollutantReading,
     ValueKind,
 )
-from app.services.cache import TTLCache
+from app.services.cache import AsyncRequestCoalescer, TTLCache
 from app.services.cpcb_aqi import compute_cpcb_aqi_from_hourly
 
 POLLUTANT_SPECS: list[dict[str, Any]] = [
@@ -69,6 +74,55 @@ POLLUTANT_SPECS: list[dict[str, Any]] = [
 ]
 
 
+@dataclass(frozen=True)
+class RateLimitState:
+    """Negative-cache metadata stored when Open-Meteo returns HTTP 429."""
+
+    retry_after_seconds: int
+    reason: str
+
+
+class OpenMeteoUpstreamError(Exception):
+    """Structured error raised when Open-Meteo fetch fails after bounded retries."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        rate_limited: bool = False,
+        retry_after_seconds: int | None = None,
+        error_code: str = "upstream_unavailable",
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.rate_limited = rate_limited
+        self.retry_after_seconds = retry_after_seconds
+        self.error_code = error_code
+
+
+def parse_retry_after_seconds(header_value: str | None) -> int | None:
+    """Parse HTTP Retry-After header (seconds or HTTP-date) into bounded integer seconds."""
+    if not header_value:
+        return None
+    cleaned = header_value.strip()
+    if not cleaned:
+        return None
+    try:
+        numeric = float(cleaned)
+        if math.isfinite(numeric):
+            return max(1, min(3600, math.ceil(numeric)))
+    except ValueError:
+        pass
+    try:
+        target = parsedate_to_datetime(cleaned)
+        if target.tzinfo is None:
+            target = target.replace(tzinfo=timezone.utc)
+        delta = (target.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds()
+        return max(1, min(3600, math.ceil(delta)))
+    except (TypeError, ValueError):
+        return None
+
+
 def classify_us_aqi(us_aqi: float | None) -> str:
     """Map US AQI numeric value to standard EPA category label."""
     if us_aqi is None:
@@ -98,6 +152,10 @@ def _to_float_or_none(value: Any) -> float | None:
 def _build_unavailable_response(
     location: LocationOption,
     error_detail: str,
+    *,
+    rate_limited: bool = False,
+    retry_after_seconds: int | None = None,
+    error_code: str = "upstream_unavailable",
 ) -> AirQualityOverviewResponse:
     """Return an explicit unavailable response without fabricating any readings."""
     pollutants = [
@@ -124,6 +182,9 @@ def _build_unavailable_response(
         cache_expires_at=None,
         is_stale=False,
         api_warning=error_detail,
+        rate_limited=rate_limited,
+        retry_after_seconds=retry_after_seconds,
+        error_code=error_code,
         us_aqi=None,
         european_aqi=None,
         aqi_category="Unavailable",
@@ -261,22 +322,30 @@ def _parse_open_meteo_payload(
         ),
         pollutants=pollutants,
         hourly_trend=hourly_trend,
+        error_code=None if any_live else "empty_readings",
         error_detail=None if any_live else "Open-Meteo returned empty sensor readings for this location.",
     )
 
 
 class OpenMeteoAirQualityService:
-    """Service orchestrating live Open-Meteo fetches, CPCB AQI, and TTL caching."""
+    """Service orchestrating live Open-Meteo fetches, coalescing, 429 backoff, and TTL caching."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._cache: TTLCache[AirQualityOverviewResponse] = TTLCache(
             ttl_seconds=settings.air_quality_cache_ttl_seconds
         )
+        self._rate_limit_cache: TTLCache[RateLimitState] = TTLCache(
+            ttl_seconds=settings.air_quality_rate_limit_cooldown_seconds
+        )
+        self._coalescer: AsyncRequestCoalescer[AirQualityOverviewResponse] = (
+            AsyncRequestCoalescer()
+        )
 
     @staticmethod
     def _cache_key(location: LocationOption) -> str:
-        return f"{round(location.latitude, 4)}:{round(location.longitude, 4)}"
+        tz = (location.timezone or "auto").strip()
+        return f"{round(location.latitude, 4)}:{round(location.longitude, 4)}:{tz}"
 
     def _to_cached_response(
         self,
@@ -284,6 +353,9 @@ class OpenMeteoAirQualityService:
         location: LocationOption,
         is_expired_fallback: bool = False,
         api_warning: str | None = None,
+        rate_limited: bool = False,
+        retry_after_seconds: int | None = None,
+        error_code: str | None = None,
     ) -> AirQualityOverviewResponse:
         now = datetime.now(timezone.utc)
         age_seconds = max(0, int((now - entry.cached_at).total_seconds()))
@@ -293,7 +365,7 @@ class OpenMeteoAirQualityService:
         stale_reason: str | None = None
         if is_expired_fallback:
             stale_reason = (
-                f"Live refresh failed; displaying expired cached telemetry "
+                f"Live refresh failed; displaying stale cached telemetry "
                 f"({age_seconds // 60}m {age_seconds % 60}s old)."
             )
         elif is_stale:
@@ -329,10 +401,117 @@ class OpenMeteoAirQualityService:
                 "is_stale": is_stale,
                 "stale_reason": stale_reason,
                 "api_warning": api_warning,
+                "rate_limited": rate_limited,
+                "retry_after_seconds": retry_after_seconds,
+                "error_code": error_code,
                 "indian_aqi": cached_indian,
                 "pollutants": cached_pollutants,
             }
         )
+
+    def _compute_backoff_delay(
+        self,
+        attempt: int,
+        retry_after_seconds: int | None = None,
+    ) -> float:
+        base = max(0.0, self._settings.air_quality_retry_base_delay_seconds)
+        max_delay = max(base, self._settings.air_quality_retry_max_delay_seconds)
+        exp_delay = base * (2 ** attempt)
+        jitter = random.uniform(0.0, min(0.25, base * 0.5)) if base > 0 else 0.0
+        target = exp_delay + jitter
+        if retry_after_seconds is not None:
+            target = max(target, float(retry_after_seconds))
+        return min(max_delay, target)
+
+    async def _fetch_payload_with_backoff(
+        self,
+        params: dict[str, Any],
+        client: httpx.AsyncClient | None = None,
+    ) -> dict[str, Any]:
+        owns_client = client is None
+        active_client = client or httpx.AsyncClient(
+            timeout=self._settings.http_timeout_seconds
+        )
+        max_retries = max(0, self._settings.air_quality_max_retries)
+        max_delay = max(0.0, self._settings.air_quality_retry_max_delay_seconds)
+
+        try:
+            for attempt in range(max_retries + 1):
+                try:
+                    response = await active_client.get(
+                        self._settings.open_meteo_air_quality_url,
+                        params=params,
+                    )
+                except (httpx.TimeoutException, httpx.TransportError) as exc:
+                    if attempt < max_retries:
+                        await asyncio.sleep(self._compute_backoff_delay(attempt))
+                        continue
+                    raise OpenMeteoUpstreamError(
+                        f"Unable to reach Open-Meteo Air Quality API: {exc}",
+                        error_code="upstream_unreachable",
+                    ) from exc
+
+                status_code = response.status_code
+                if status_code == 429:
+                    retry_after = parse_retry_after_seconds(
+                        response.headers.get("retry-after")
+                    )
+                    effective_retry_after = (
+                        retry_after
+                        or self._settings.air_quality_rate_limit_cooldown_seconds
+                    )
+                    # Retry only if Retry-After fits within bounded request retry delay
+                    if (
+                        attempt < max_retries
+                        and (retry_after is None or retry_after <= max_delay)
+                    ):
+                        delay = self._compute_backoff_delay(
+                            attempt,
+                            retry_after_seconds=retry_after,
+                        )
+                        if delay > 0:
+                            await asyncio.sleep(delay)
+                        continue
+                    raise OpenMeteoUpstreamError(
+                        (
+                            f"Open-Meteo Air Quality API rate limit reached (HTTP 429). "
+                            f"Please wait about {effective_retry_after}s before retrying."
+                        ),
+                        rate_limited=True,
+                        retry_after_seconds=effective_retry_after,
+                        error_code="rate_limited",
+                    )
+
+                if status_code >= 500:
+                    if attempt < max_retries:
+                        await asyncio.sleep(self._compute_backoff_delay(attempt))
+                        continue
+                    raise OpenMeteoUpstreamError(
+                        f"Open-Meteo Air Quality API returned HTTP {status_code}.",
+                        error_code="upstream_server_error",
+                    )
+
+                if status_code >= 400:
+                    raise OpenMeteoUpstreamError(
+                        f"Open-Meteo Air Quality API returned HTTP {status_code}.",
+                        error_code="upstream_client_error",
+                    )
+
+                try:
+                    return response.json()
+                except ValueError as exc:
+                    raise OpenMeteoUpstreamError(
+                        f"Invalid JSON payload from Open-Meteo Air Quality API: {exc}",
+                        error_code="invalid_upstream_payload",
+                    ) from exc
+
+            raise OpenMeteoUpstreamError(
+                "Open-Meteo Air Quality API retries exhausted.",
+                error_code="upstream_unavailable",
+            )
+        finally:
+            if owns_client:
+                await active_client.aclose()
 
     async def get_air_quality(
         self,
@@ -340,7 +519,7 @@ class OpenMeteoAirQualityService:
         force_refresh: bool = False,
         client: httpx.AsyncClient | None = None,
     ) -> AirQualityOverviewResponse:
-        """Fetch live Open-Meteo data or return explicitly tagged cached/unavailable state."""
+        """Fetch live Open-Meteo data with coalescing, 429 cooldown, and stale fallback."""
         key = self._cache_key(location)
 
         if not force_refresh:
@@ -348,54 +527,101 @@ class OpenMeteoAirQualityService:
             if cached is not None:
                 return self._to_cached_response(cached, location=location)
 
-        params = {
-            "latitude": location.latitude,
-            "longitude": location.longitude,
-            "current": (
-                "us_aqi,european_aqi,pm10,pm2_5,carbon_monoxide,"
-                "nitrogen_dioxide,sulphur_dioxide,ozone"
-            ),
-            "hourly": (
-                "pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
-                "sulphur_dioxide,ozone,us_aqi"
-            ),
-            "past_days": 1,
-            "forecast_days": 1,
-            "timezone": location.timezone or "auto",
-        }
-
-        owns_client = client is None
-        active_client = client or httpx.AsyncClient(
-            timeout=self._settings.http_timeout_seconds
-        )
-        try:
-            response = await active_client.get(
-                self._settings.open_meteo_air_quality_url,
-                params=params,
-            )
-            response.raise_for_status()
-            payload = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            warning = f"Unable to reach Open-Meteo Air Quality API: {exc}"
+        # Negative rate-limit cache prevents request storms during active HTTP 429 cooldowns
+        rate_entry = self._rate_limit_cache.get(key)
+        if rate_entry is not None:
+            now = datetime.now(timezone.utc)
+            remaining = max(1, math.ceil((rate_entry.expires_at - now).total_seconds()))
             fallback_entry, _ = self._cache.get_with_staleness(key)
+            warning = (
+                f"{rate_entry.value.reason} (cooldown active: ~{remaining}s remaining)."
+            )
             if fallback_entry is not None:
                 return self._to_cached_response(
                     fallback_entry,
                     location=location,
                     is_expired_fallback=True,
                     api_warning=warning,
+                    rate_limited=True,
+                    retry_after_seconds=remaining,
+                    error_code="rate_limited",
                 )
             return _build_unavailable_response(
                 location=location,
                 error_detail=warning,
+                rate_limited=True,
+                retry_after_seconds=remaining,
+                error_code="rate_limited",
             )
-        finally:
-            if owns_client:
-                await active_client.aclose()
 
-        fetched_at = datetime.now(timezone.utc)
-        parsed = _parse_open_meteo_payload(payload, location=location, fetched_at=fetched_at)
-        if parsed.data_status == DataStatus.LIVE:
-            entry = self._cache.set(key, parsed)
-            return parsed.model_copy(update={"cache_expires_at": entry.expires_at})
-        return parsed
+        async def _execute_fetch() -> AirQualityOverviewResponse:
+            if not force_refresh:
+                fresh = self._cache.get(key)
+                if fresh is not None:
+                    return self._to_cached_response(fresh, location=location)
+
+            params = {
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "current": (
+                    "us_aqi,european_aqi,pm10,pm2_5,carbon_monoxide,"
+                    "nitrogen_dioxide,sulphur_dioxide,ozone"
+                ),
+                "hourly": (
+                    "pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
+                    "sulphur_dioxide,ozone,us_aqi"
+                ),
+                "past_days": 1,
+                "forecast_days": 1,
+                "timezone": location.timezone or "auto",
+            }
+
+            try:
+                payload = await self._fetch_payload_with_backoff(params, client=client)
+            except OpenMeteoUpstreamError as exc:
+                if exc.rate_limited:
+                    cooldown = min(
+                        3600,
+                        max(
+                            self._settings.air_quality_rate_limit_cooldown_seconds,
+                            exc.retry_after_seconds or 0,
+                        ),
+                    )
+                    self._rate_limit_cache.set(
+                        key,
+                        RateLimitState(
+                            retry_after_seconds=cooldown,
+                            reason=exc.message,
+                        ),
+                        ttl_seconds=cooldown,
+                    )
+                fallback_entry, _ = self._cache.get_with_staleness(key)
+                if fallback_entry is not None:
+                    return self._to_cached_response(
+                        fallback_entry,
+                        location=location,
+                        is_expired_fallback=True,
+                        api_warning=exc.message,
+                        rate_limited=exc.rate_limited,
+                        retry_after_seconds=exc.retry_after_seconds,
+                        error_code=exc.error_code,
+                    )
+                return _build_unavailable_response(
+                    location=location,
+                    error_detail=exc.message,
+                    rate_limited=exc.rate_limited,
+                    retry_after_seconds=exc.retry_after_seconds,
+                    error_code=exc.error_code,
+                )
+
+            fetched_at = datetime.now(timezone.utc)
+            parsed = _parse_open_meteo_payload(
+                payload, location=location, fetched_at=fetched_at
+            )
+            if parsed.data_status == DataStatus.LIVE:
+                entry = self._cache.set(key, parsed)
+                self._rate_limit_cache.delete(key)
+                return parsed.model_copy(update={"cache_expires_at": entry.expires_at})
+            return parsed
+
+        return await self._coalescer.run(key, _execute_fetch)

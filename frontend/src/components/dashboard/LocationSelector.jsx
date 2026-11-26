@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, MapPin, Search, X } from "lucide-react";
+
+const SEARCH_DEBOUNCE_MS = 450;
 
 export default function LocationSelector({
   presets = [],
@@ -15,41 +17,84 @@ export default function LocationSelector({
   const [searchError, setSearchError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const trimmed = query.trim();
+  const lastSearchedRef = useRef("");
+  const activeSearchIdRef = useRef(0);
+
+  const executeSearch = async (rawQuery) => {
+    const trimmed = rawQuery.trim();
     if (trimmed.length < 2) {
       setSearchError("Enter at least 2 characters to search a city.");
       return;
     }
 
+    const searchId = ++activeSearchIdRef.current;
+    lastSearchedRef.current = trimmed.toLowerCase();
     setSearching(true);
     setSearchError(null);
     setHasSearched(true);
 
     try {
       const response = await onSearchLocations(trimmed);
+      if (searchId !== activeSearchIdRef.current) return;
+
       if (response.data_status === "unavailable") {
         setSearchResults([]);
-        setSearchError(
-          response.error_detail || "Geocoding service is currently unavailable."
-        );
+        if (response.rate_limited) {
+          setSearchError(
+            response.error_detail ||
+              `Open-Meteo city search rate limit reached. Wait ${
+                response.retry_after_seconds || 60
+              }s before retrying.`
+          );
+        } else {
+          setSearchError(
+            response.error_detail || "Geocoding service is currently unavailable."
+          );
+        }
       } else {
         setSearchResults(response.locations || []);
       }
     } catch (err) {
+      if (searchId !== activeSearchIdRef.current) return;
       setSearchResults([]);
       setSearchError(err.message || "Unable to search locations.");
     } finally {
-      setSearching(false);
+      if (searchId === activeSearchIdRef.current) {
+        setSearching(false);
+      }
     }
   };
 
+  // Debounced auto-search while typing >= 2 characters
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      lastSearchedRef.current = "";
+      return undefined;
+    }
+    if (trimmed.toLowerCase() === lastSearchedRef.current) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      executeSearch(trimmed);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    await executeSearch(query);
+  };
+
   const clearSearch = () => {
+    activeSearchIdRef.current += 1;
+    lastSearchedRef.current = "";
     setQuery("");
     setSearchResults([]);
     setSearchError(null);
     setHasSearched(false);
+    setSearching(false);
   };
 
   return (

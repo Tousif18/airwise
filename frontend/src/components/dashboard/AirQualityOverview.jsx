@@ -25,6 +25,7 @@ import {
   getCpcbAqiAppearance,
   getValueKindMeta,
 } from "../../utils/airQuality";
+import { classifyTelemetryFeedback } from "../../utils/requestControl";
 
 function TrendTooltip({ active, payload, label }) {
   if (!active || !payload || payload.length === 0) return null;
@@ -59,6 +60,7 @@ export default function AirQualityOverview({
   airQuality,
   loading,
   error,
+  refreshCooldownSeconds = 0,
   onRetry,
 }) {
   if (loading) {
@@ -66,20 +68,24 @@ export default function AirQualityOverview({
   }
 
   if (error && !airQuality) {
+    const feedback = classifyTelemetryFeedback({ airQuality: null, error });
     return (
       <section className="rounded-2xl border border-rose-200 bg-white p-6 shadow-xs">
         <EmptyState
           icon={AlertCircle}
-          title="Air quality overview unavailable"
-          description={error}
+          title={feedback.title}
+          description={feedback.message}
           action={
             onRetry && (
               <button
                 type="button"
+                disabled={refreshCooldownSeconds > 0}
                 onClick={onRetry}
-                className="rounded-xl bg-pine-700 px-4 py-2 text-xs font-semibold text-white hover:bg-pine-800"
+                className="rounded-xl bg-pine-700 px-4 py-2 text-xs font-semibold text-white hover:bg-pine-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Try Again
+                {refreshCooldownSeconds > 0
+                  ? `Wait ${refreshCooldownSeconds}s`
+                  : "Try Again"}
               </button>
             )
           }
@@ -147,18 +153,29 @@ export default function AirQualityOverview({
   const isCpcbUnavailable =
     !indianAqi || indianAqi.status === "unavailable" || indianAqi.aqi === null;
   const isUsUnavailable = dataStatus === "unavailable" || usAqi === null;
+  const feedback = classifyTelemetryFeedback({
+    airQuality,
+    error: error ? { message: error } : null,
+  });
 
   return (
     <section
       aria-label="Air Quality Overview"
       className={`rounded-2xl border border-mist-200 bg-gradient-to-br ${panelTint} p-6 shadow-xs`}
     >
-      {/* Stale-data or API-failure warning banner */}
-      {(isStale || apiWarning || dataStatus === "unavailable") && (
+      {/* Distinct warning banner for rate limit, stale cache, or unavailable telemetry */}
+      {(feedback.kind === "rate_limited" ||
+        feedback.kind === "no_cached_data" ||
+        feedback.kind === "stale_cached" ||
+        isStale ||
+        apiWarning ||
+        dataStatus === "unavailable") && (
         <div
           role="status"
           className={`mb-5 flex flex-col gap-2 rounded-xl border px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between ${
-            apiWarning || dataStatus === "unavailable"
+            feedback.kind === "rate_limited" ||
+            feedback.kind === "no_cached_data" ||
+            dataStatus === "unavailable"
               ? "border-rose-200 bg-rose-50/90 text-rose-900"
               : "border-amber-200 bg-amber-50/90 text-amber-900"
           }`}
@@ -166,25 +183,20 @@ export default function AirQualityOverview({
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="space-y-0.5">
-              <p className="font-semibold">
-                {dataStatus === "unavailable"
-                  ? "API Telemetry Unavailable"
-                  : apiWarning
-                    ? "Upstream API Failure — Showing Cached Fallback"
-                    : "Stale Cached Telemetry Warning"}
-              </p>
-              <p className="opacity-90">
-                {staleReason || apiWarning || errorDetail}
-              </p>
+              <p className="font-semibold">{feedback.title}</p>
+              <p className="opacity-90">{feedback.message}</p>
             </div>
           </div>
           {onRetry && (
             <button
               type="button"
+              disabled={refreshCooldownSeconds > 0}
               onClick={onRetry}
-              className="self-start rounded-lg border border-current/25 bg-white px-3 py-1 font-semibold transition hover:bg-slate-50 sm:self-auto"
+              className="self-start rounded-lg border border-current/25 bg-white px-3 py-1 font-semibold transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
             >
-              Retry Live Fetch
+              {refreshCooldownSeconds > 0
+                ? `Cooldown (${refreshCooldownSeconds}s)`
+                : "Retry Live Fetch"}
             </button>
           )}
         </div>

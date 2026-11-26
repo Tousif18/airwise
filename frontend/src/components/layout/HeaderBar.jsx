@@ -11,6 +11,7 @@ export default function HeaderBar({
   fetchedAt,
   cachedAt,
   isRefreshing,
+  refreshCooldownSeconds = 0,
   onRefresh,
   onOpenMobileMenu,
   showRefresh = true,
@@ -21,6 +22,8 @@ export default function HeaderBar({
       : dataStatus === "live" && fetchedAt
         ? `Updated ${formatTimestamp(fetchedAt)}`
         : null;
+
+  const refreshDisabled = isRefreshing || refreshCooldownSeconds > 0;
 
   return (
     <header className="sticky top-0 z-20 border-b border-mist-200 bg-white/90 backdrop-blur-md">
@@ -42,9 +45,13 @@ export default function HeaderBar({
               <button
                 type="button"
                 onClick={onRefresh}
-                disabled={isRefreshing}
+                disabled={refreshDisabled}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-mist-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-mist-50 disabled:cursor-not-allowed disabled:opacity-60"
-                title="Fetch fresh live readings from Open-Meteo"
+                title={
+                  refreshCooldownSeconds > 0
+                    ? `Please wait ${refreshCooldownSeconds}s before refreshing live telemetry again`
+                    : "Fetch fresh live readings from Open-Meteo"
+                }
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 text-pine-700 ${
@@ -52,7 +59,11 @@ export default function HeaderBar({
                   }`}
                 />
                 <span className="hidden sm:inline">
-                  {isRefreshing ? "Refreshing..." : "Refresh Live"}
+                  {isRefreshing
+                    ? "Refreshing..."
+                    : refreshCooldownSeconds > 0
+                      ? `Wait ${refreshCooldownSeconds}s`
+                      : "Refresh Live"}
                 </span>
               </button>
             </>

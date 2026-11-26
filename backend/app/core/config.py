@@ -3,7 +3,7 @@
 from functools import lru_cache
 import os
 from pathlib import Path
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     air_quality_cache_ttl_seconds: int = 600
     air_quality_stale_warning_seconds: int = 300
     air_quality_observation_stale_minutes: int = 180
+    air_quality_rate_limit_cooldown_seconds: int = 60
+    air_quality_max_retries: int = 2
+    air_quality_retry_base_delay_seconds: float = 0.5
+    air_quality_retry_max_delay_seconds: float = 4.0
+    geocoding_cache_ttl_seconds: int = 3600
     http_timeout_seconds: float = 10.0
 
     gemini_api_key: str | None = None
@@ -55,6 +60,15 @@ class Settings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @field_validator("frontend_url", "cors_origin_regex", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, value: str | None) -> str | None:
+        """Convert blank env values like '' to None so CORSMiddleware never compiles ''."""
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped if stripped else None
+        return value
 
     @property
     def resolved_host(self) -> str:

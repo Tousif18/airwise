@@ -1,3 +1,5 @@
+import { InFlightRequestManager } from "../utils/requestControl";
+
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").replace(
     /\/+$/,
@@ -7,14 +9,28 @@ const API_BASE_URL =
 const FAMILY_PROFILE_STORAGE_KEY = "airwise_family_profile_v1";
 const HOME_ENVIRONMENT_STORAGE_KEY = "airwise_indoor_environment_v1";
 
+const getRequestManager = new InFlightRequestManager({
+  defaultCacheTtlMs: 60_000,
+});
+
 async function requestJson(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch (networkErr) {
+    const err = new Error(
+      "Unable to reach the AirWise backend server. Please try again shortly."
+    );
+    err.isNetworkError = true;
+    err.cause = networkErr;
+    throw err;
+  }
 
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
@@ -29,10 +45,20 @@ async function requestJson(path, options = {}) {
     } catch {
       // Keep status message when body is not JSON
     }
-    throw new Error(message);
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();
+}
+
+function cachedGet(path, { bypassCache = false, cacheTtlMs = 60_000, signal } = {}) {
+  return getRequestManager.execute(
+    path,
+    () => requestJson(path, signal ? { signal } : {}),
+    { bypassCache, cacheTtlMs }
+  );
 }
 
 export function loadLocalFamilyProfile() {
@@ -56,66 +82,6 @@ export function saveLocalFamilyProfile(profile) {
   }
 }
 
-export async function fetchHealth() {
-  return requestJson("/api/v1/health");
-}
-
-export async function fetchAssistantHealth() {
-  return requestJson("/api/v1/assistant/health");
-}
-
-export async function fetchAssistantStatus() {
-  return fetchAssistantHealth();
-}
-
-export async function fetchPresetLocations() {
-  return requestJson("/api/v1/locations/presets");
-}
-
-export async function searchLocations(query) {
-  const params = new URLSearchParams({ q: query });
-  return requestJson(`/api/v1/locations/search?${params.toString()}`);
-}
-
-export async function fetchAirQuality(location, { forceRefresh = false } = {}) {
-  const params = new URLSearchParams();
-  if (location?.latitude != null && location?.longitude != null) {
-    params.set("latitude", String(location.latitude));
-    params.set("longitude", String(location.longitude));
-    if (location.id) params.set("location_id", location.id);
-    if (location.name) params.set("name", location.name);
-    if (location.region) params.set("region", location.region);
-    if (location.country) params.set("country", location.country);
-    if (location.timezone) params.set("timezone", location.timezone);
-  } else if (location?.id) {
-    params.set("location_id", location.id);
-  }
-  if (forceRefresh) {
-    params.set("force_refresh", "true");
-  }
-  return requestJson(`/api/v1/air-quality?${params.toString()}`);
-}
-
-export async function fetchFamilyProfile() {
-  return requestJson("/api/v1/family/profile");
-}
-
-export async function saveFamilyProfile(profile) {
-  const saved = await requestJson("/api/v1/family/profile", {
-    method: "PUT",
-    body: JSON.stringify(profile),
-  });
-  saveLocalFamilyProfile(saved);
-  return saved;
-}
-
-export async function postAssistantChat(payload) {
-  return requestJson("/api/v1/assistant/chat", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
 export function loadLocalHomeEnvironment() {
   try {
     const raw = window.localStorage.getItem(HOME_ENVIRONMENT_STORAGE_KEY);
@@ -135,6 +101,71 @@ export function saveLocalHomeEnvironment(profile) {
   } catch {
     // Ignore storage errors
   }
+}
+
+export async function fetchHealth() {
+  return cachedGet("/api/v1/health", { cacheTtlMs: 30_000 });
+}
+
+export async function fetchAssistantHealth() {
+  return cachedGet("/api/v1/assistant/health", { cacheTtlMs: 30_000 });
+}
+
+export async function fetchAssistantStatus() {
+  return fetchAssistantHealth();
+}
+
+export async function fetchPresetLocations() {
+  return cachedGet("/api/v1/locations/presets", { cacheTtlMs: 600_000 });
+}
+
+export async function searchLocations(query) {
+  const params = new URLSearchParams({ q: query.trim() });
+  return cachedGet(`/api/v1/locations/search?${params.toString()}`, {
+    cacheTtlMs: 300_000,
+  });
+}
+
+export async function fetchAirQuality(location, { forceRefresh = false } = {}) {
+  const params = new URLSearchParams();
+  if (location?.latitude != null && location?.longitude != null) {
+    params.set("latitude", String(location.latitude));
+    params.set("longitude", String(location.longitude));
+    if (location.id) params.set("location_id", location.id);
+    if (location.name) params.set("name", location.name);
+    if (location.region) params.set("region", location.region);
+    if (location.country) params.set("country", location.country);
+    if (location.timezone) params.set("timezone", location.timezone);
+  } else if (location?.id) {
+    params.set("location_id", location.id);
+  }
+  if (forceRefresh) {
+    params.set("force_refresh", "true");
+  }
+  return cachedGet(`/api/v1/air-quality?${params.toString()}`, {
+    bypassCache: forceRefresh,
+    cacheTtlMs: 60_000,
+  });
+}
+
+export async function fetchFamilyProfile() {
+  return cachedGet("/api/v1/family/profile", { cacheTtlMs: 10_000 });
+}
+
+export async function saveFamilyProfile(profile) {
+  const saved = await requestJson("/api/v1/family/profile", {
+    method: "PUT",
+    body: JSON.stringify(profile),
+  });
+  saveLocalFamilyProfile(saved);
+  return saved;
+}
+
+export async function postAssistantChat(payload) {
+  return requestJson("/api/v1/assistant/chat", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function postAssistantRecommendations(payload) {

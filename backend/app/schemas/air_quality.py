@@ -108,6 +108,9 @@ class AirQualityOverviewResponse(BaseModel):
     is_stale: bool = False
     stale_reason: str | None = None
     api_warning: str | None = None
+    rate_limited: bool = False
+    retry_after_seconds: int | None = None
+    error_code: str | None = None
     us_aqi: float | None = None
     european_aqi: float | None = None
     aqi_category: str = "Unavailable"
@@ -122,4 +125,6 @@ class LocationSearchResponse(BaseModel):
 
     locations: list[LocationOption]
     data_status: DataStatus
+    rate_limited: bool = False
+    retry_after_seconds: int | None = None
     error_detail: str | None = None

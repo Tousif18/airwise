@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Sidebar, { NAV_ITEMS } from "./components/layout/Sidebar";
 import HeaderBar from "./components/layout/HeaderBar";
 import DashboardPage from "./pages/DashboardPage";
@@ -16,6 +16,18 @@ import {
   saveLocalFamilyProfile,
   searchLocations,
 } from "./services/api";
+import {
+  DEFAULT_REFRESH_COOLDOWN_MS,
+  RefreshCooldownTracker,
+} from "./utils/requestControl";
+
+function getLocationKey(loc) {
+  if (!loc) return null;
+  if (loc.latitude != null && loc.longitude != null) {
+    return `${loc.latitude.toFixed(4)}:${loc.longitude.toFixed(4)}:${loc.timezone || "auto"}`;
+  }
+  return loc.id || null;
+}
 
 export default function App() {
   const [activePage, setActivePage] = useState("dashboard");
@@ -33,14 +45,35 @@ export default function App() {
   const [airQualityLoading, setAirQualityLoading] = useState(true);
   const [airQualityError, setAirQualityError] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCooldownSeconds, setRefreshCooldownSeconds] = useState(0);
 
   const [familyProfile, setFamilyProfile] = useState(() => loadLocalFamilyProfile());
   const [familyLoading, setFamilyLoading] = useState(() => !loadLocalFamilyProfile());
   const [familyError, setFamilyError] = useState(null);
 
+  const cooldownTrackerRef = useRef(
+    new RefreshCooldownTracker({ defaultCooldownMs: DEFAULT_REFRESH_COOLDOWN_MS })
+  );
+  const isRefreshingRef = useRef(false);
+  const lastFetchedLocationKeyRef = useRef(null);
+
+  // Tick manual refresh cooldown timer once per second while active
+  useEffect(() => {
+    if (refreshCooldownSeconds <= 0) return undefined;
+    const timer = setInterval(() => {
+      setRefreshCooldownSeconds(cooldownTrackerRef.current.getRemainingSeconds());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [refreshCooldownSeconds]);
+
   const loadAirQuality = useCallback(async (location, { forceRefresh = false } = {}) => {
     if (!location) return;
     if (forceRefresh) {
+      if (isRefreshingRef.current || !cooldownTrackerRef.current.canRefresh()) {
+        setRefreshCooldownSeconds(cooldownTrackerRef.current.getRemainingSeconds());
+        return;
+      }
+      isRefreshingRef.current = true;
       setIsRefreshing(true);
     } else {
       setAirQualityLoading(true);
@@ -50,13 +83,28 @@ export default function App() {
     try {
       const data = await fetchAirQuality(location, { forceRefresh });
       setAirQuality(data);
+
+      if (data?.rate_limited) {
+        const remaining = cooldownTrackerRef.current.recordAttempt({
+          retryAfterSeconds: data.retry_after_seconds,
+        });
+        setRefreshCooldownSeconds(remaining);
+      } else if (forceRefresh) {
+        const remaining = cooldownTrackerRef.current.recordAttempt();
+        setRefreshCooldownSeconds(remaining);
+      }
     } catch (err) {
       setAirQualityError(
         err.message || "Unable to reach the AirWise backend for air quality telemetry."
       );
+      if (forceRefresh) {
+        const remaining = cooldownTrackerRef.current.recordAttempt();
+        setRefreshCooldownSeconds(remaining);
+      }
     } finally {
       setAirQualityLoading(false);
       setIsRefreshing(false);
+      isRefreshingRef.current = false;
     }
   }, []);
 
@@ -101,7 +149,7 @@ export default function App() {
         );
         setPresetsLoading(false);
         setAirQualityLoading(false);
-        setAirQualityError("Backend connection unavailable. Start FastAPI on port 8000.");
+        setAirQualityError("Backend connection unavailable. Check that FastAPI is running.");
       }
 
       if (familyRes.status === "fulfilled") {
@@ -121,12 +169,14 @@ export default function App() {
     };
   }, []);
 
-  // Fetch Open-Meteo data whenever selected location changes
+  // Fetch Open-Meteo data only when the logical location key actually changes
+  const selectedLocationKey = getLocationKey(selectedLocation);
   useEffect(() => {
-    if (selectedLocation) {
-      loadAirQuality(selectedLocation);
-    }
-  }, [selectedLocation, loadAirQuality]);
+    if (!selectedLocation || !selectedLocationKey) return;
+    if (lastFetchedLocationKeyRef.current === selectedLocationKey) return;
+    lastFetchedLocationKeyRef.current = selectedLocationKey;
+    loadAirQuality(selectedLocation);
+  }, [selectedLocation, selectedLocationKey, loadAirQuality]);
 
   const handleSaveFamilyProfile = async (updatedProfile) => {
     setFamilyError(null);
@@ -136,7 +186,7 @@ export default function App() {
       setFamilyProfile(saved);
       if (saved.location_id) {
         const matched = presets.find((loc) => loc.id === saved.location_id);
-        if (matched && matched.id !== selectedLocation?.id) {
+        if (matched && getLocationKey(matched) !== selectedLocationKey) {
           setSelectedLocation(matched);
         }
       }
@@ -175,6 +225,7 @@ export default function App() {
           fetchedAt={airQuality?.fetched_at}
           cachedAt={airQuality?.cached_at}
           isRefreshing={isRefreshing}
+          refreshCooldownSeconds={refreshCooldownSeconds}
           onRefresh={() => loadAirQuality(selectedLocation, { forceRefresh: true })}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           showRefresh={
@@ -196,6 +247,7 @@ export default function App() {
               airQuality={airQuality}
               airQualityLoading={airQualityLoading}
               airQualityError={airQualityError}
+              refreshCooldownSeconds={refreshCooldownSeconds}
               onRetryAirQuality={() =>
                 loadAirQuality(selectedLocation, { forceRefresh: true })
               }

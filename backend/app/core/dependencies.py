@@ -6,6 +6,7 @@ from app.core.config import get_settings
 from app.services.decision_engine import DeterministicDecisionEngine
 from app.services.gemini_service import GeminiAssistantService
 from app.services.indoor_advisor import IndoorAirAdvisorService
+from app.services.locations import LocationSearchService
 from app.services.open_meteo import OpenMeteoAirQualityService
 
 
@@ -13,6 +14,12 @@ from app.services.open_meteo import OpenMeteoAirQualityService
 def get_air_quality_service() -> OpenMeteoAirQualityService:
     """Provide singleton Open-Meteo service sharing the TTL cache."""
     return OpenMeteoAirQualityService(settings=get_settings())
+
+
+@lru_cache(maxsize=1)
+def get_location_search_service() -> LocationSearchService:
+    """Provide singleton Open-Meteo geocoding search service sharing TTL cache."""
+    return LocationSearchService(settings=get_settings())
 
 
 @lru_cache(maxsize=1)
