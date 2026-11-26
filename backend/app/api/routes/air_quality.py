@@ -3,8 +3,8 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core.dependencies import get_air_quality_service
-from app.schemas.air_quality import AirQualityOverviewResponse, LocationOption
-from app.services.locations import find_preset_location, get_preset_locations
+from app.schemas.air_quality import AirQualityOverviewResponse
+from app.services.locations import resolve_location_selection
 
 router = APIRouter(prefix="/air-quality", tags=["air-quality"])
 
@@ -21,26 +21,20 @@ async def get_air_quality_overview(
     force_refresh: bool = Query(default=False, description="Bypass TTL cache for live fetch"),
 ) -> AirQualityOverviewResponse:
     """Return live, cached, or explicitly unavailable air quality data."""
-    if latitude is not None and longitude is not None:
-        location = LocationOption(
-            id=location_id or f"custom-{round(latitude, 3)}-{round(longitude, 3)}",
-            name=name or f"{latitude:.2f}, {longitude:.2f}",
-            region=region,
-            country=country or "Custom Coordinates",
-            latitude=latitude,
-            longitude=longitude,
-            timezone=timezone,
+    location = resolve_location_selection(
+        location_id=location_id,
+        latitude=latitude,
+        longitude=longitude,
+        name=name,
+        region=region,
+        country=country,
+        timezone=timezone,
+    )
+    if location is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown preset location_id '{location_id}'. Provide latitude and longitude for custom locations.",
         )
-    elif location_id:
-        preset = find_preset_location(location_id)
-        if preset is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Unknown preset location_id '{location_id}'. Provide latitude and longitude for custom locations.",
-            )
-        location = preset
-    else:
-        location = get_preset_locations()[0]
 
     service = get_air_quality_service()
     return await service.get_air_quality(location=location, force_refresh=force_refresh)

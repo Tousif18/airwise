@@ -4,6 +4,9 @@ const API_BASE_URL =
     ""
   );
 
+const FAMILY_PROFILE_STORAGE_KEY = "airwise_family_profile_v1";
+const HOME_ENVIRONMENT_STORAGE_KEY = "airwise_indoor_environment_v1";
+
 async function requestJson(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
@@ -32,12 +35,37 @@ async function requestJson(path, options = {}) {
   return response.json();
 }
 
+export function loadLocalFamilyProfile() {
+  try {
+    const raw = window.localStorage.getItem(FAMILY_PROFILE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLocalFamilyProfile(profile) {
+  try {
+    if (profile && typeof profile === "object") {
+      window.localStorage.setItem(FAMILY_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    }
+  } catch {
+    // Ignore storage quota or private-mode errors
+  }
+}
+
 export async function fetchHealth() {
   return requestJson("/api/v1/health");
 }
 
+export async function fetchAssistantHealth() {
+  return requestJson("/api/v1/assistant/health");
+}
+
 export async function fetchAssistantStatus() {
-  return requestJson("/api/v1/assistant/status");
+  return fetchAssistantHealth();
 }
 
 export async function fetchPresetLocations() {
@@ -69,14 +97,58 @@ export async function fetchAirQuality(location, { forceRefresh = false } = {}) {
 }
 
 export async function fetchFamilyProfile() {
-  return requestJson("/api/v1/family-profile");
+  return requestJson("/api/v1/family/profile");
 }
 
 export async function saveFamilyProfile(profile) {
-  return requestJson("/api/v1/family-profile", {
+  const saved = await requestJson("/api/v1/family/profile", {
     method: "PUT",
     body: JSON.stringify(profile),
   });
+  saveLocalFamilyProfile(saved);
+  return saved;
 }
 
-export { API_BASE_URL };
+export async function postAssistantChat(payload) {
+  return requestJson("/api/v1/assistant/chat", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function loadLocalHomeEnvironment() {
+  try {
+    const raw = window.localStorage.getItem(HOME_ENVIRONMENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLocalHomeEnvironment(profile) {
+  try {
+    if (profile && typeof profile === "object") {
+      window.localStorage.setItem(HOME_ENVIRONMENT_STORAGE_KEY, JSON.stringify(profile));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export async function postAssistantRecommendations(payload) {
+  return requestJson("/api/v1/assistant/recommendations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function postIndoorRecommendations(payload) {
+  return requestJson("/api/v1/indoor/recommendations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export { API_BASE_URL, FAMILY_PROFILE_STORAGE_KEY, HOME_ENVIRONMENT_STORAGE_KEY };

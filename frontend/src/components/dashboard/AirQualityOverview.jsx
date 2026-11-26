@@ -7,14 +7,53 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, AlertCircle, Compass, Clock } from "lucide-react";
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  Clock,
+  Compass,
+  Info,
+} from "lucide-react";
 import DataStatusBadge from "../common/DataStatusBadge";
 import { EmptyState, LoadingCardSkeleton } from "../common/StateFeedback";
 import {
   formatHourLabel,
+  formatObservationTime,
   formatTimestamp,
   getAqiAppearance,
+  getCpcbAqiAppearance,
+  getValueKindMeta,
 } from "../../utils/airQuality";
+
+function TrendTooltip({ active, payload, label }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const row = payload[0]?.payload;
+  const kindMeta = getValueKindMeta(row?.valueKind);
+
+  return (
+    <div className="rounded-xl border border-mist-200 bg-white px-3 py-2 text-xs shadow-md">
+      <div className="flex items-center justify-between gap-3 border-b border-mist-100 pb-1">
+        <span className="font-semibold text-slate-900">{label}</span>
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${kindMeta.classes}`}>
+          {kindMeta.label}
+        </span>
+      </div>
+      <div className="mt-1.5 space-y-1">
+        {row?.pm25 !== null && row?.pm25 !== undefined && (
+          <p className="text-slate-700">
+            PM2.5: <strong className="text-pine-800">{row.pm25} μg/m³</strong>
+          </p>
+        )}
+        {row?.usAqi !== null && row?.usAqi !== undefined && (
+          <p className="text-slate-700">
+            US AQI: <strong className="text-amber-700">{Math.round(row.usAqi)}</strong>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function AirQualityOverview({
   airQuality,
@@ -62,33 +101,96 @@ export default function AirQualityOverview({
   const {
     location,
     data_status: dataStatus,
+    telemetry_kind: telemetryKind = "estimated",
+    observation_time: observationTime,
     us_aqi: usAqi,
     european_aqi: europeanAqi,
+    indian_aqi: indianAqi,
     fetched_at: fetchedAt,
     cached_at: cachedAt,
     cache_expires_at: cacheExpiresAt,
+    is_stale: isStale,
+    stale_reason: staleReason,
+    api_warning: apiWarning,
     hourly_trend: hourlyTrend = [],
     error_detail: errorDetail,
     source,
   } = airQuality;
 
-  const appearance = getAqiAppearance(usAqi, dataStatus);
-  const chartData = hourlyTrend
-    .filter((pt) => pt.pm2_5 !== null || pt.us_aqi !== null)
-    .map((pt) => ({
-      hour: formatHourLabel(pt.time),
-      usAqi: pt.us_aqi,
-      pm25: pt.pm2_5,
-    }));
+  const usAppearance = getAqiAppearance(usAqi, dataStatus);
+  const cpcbAppearance = getCpcbAqiAppearance(indianAqi?.aqi, indianAqi?.status);
+  const telemetryMeta = getValueKindMeta(telemetryKind);
 
-  const isUnavailable = dataStatus === "unavailable" || usAqi === null;
+  const panelTint =
+    indianAqi?.status !== "unavailable" && indianAqi?.aqi !== null
+      ? cpcbAppearance.panelTint
+      : usAppearance.panelTint;
+
+  // Build chart series separating Estimated (past/current model) and Forecast (upcoming)
+  const validPoints = hourlyTrend.filter(
+    (pt) => pt.pm2_5 !== null || pt.us_aqi !== null
+  );
+  const firstForecastIdx = validPoints.findIndex((pt) => pt.value_kind === "forecast");
+  const chartData = validPoints.map((pt, idx) => {
+    const isForecast = pt.value_kind === "forecast";
+    const isBridgePoint = firstForecastIdx > 0 && idx === firstForecastIdx - 1;
+    return {
+      hour: formatHourLabel(pt.time),
+      valueKind: pt.value_kind || "estimated",
+      pm25: pt.pm2_5,
+      pm25Estimated: !isForecast ? pt.pm2_5 : null,
+      pm25Forecast: isForecast || isBridgePoint ? pt.pm2_5 : null,
+      usAqi: pt.us_aqi,
+    };
+  });
+
+  const isCpcbUnavailable =
+    !indianAqi || indianAqi.status === "unavailable" || indianAqi.aqi === null;
+  const isUsUnavailable = dataStatus === "unavailable" || usAqi === null;
 
   return (
     <section
       aria-label="Air Quality Overview"
-      className={`rounded-2xl border border-mist-200 bg-gradient-to-br ${appearance.panelTint} p-6 shadow-xs`}
+      className={`rounded-2xl border border-mist-200 bg-gradient-to-br ${panelTint} p-6 shadow-xs`}
     >
-      {/* Top row: location + status */}
+      {/* Stale-data or API-failure warning banner */}
+      {(isStale || apiWarning || dataStatus === "unavailable") && (
+        <div
+          role="status"
+          className={`mb-5 flex flex-col gap-2 rounded-xl border px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between ${
+            apiWarning || dataStatus === "unavailable"
+              ? "border-rose-200 bg-rose-50/90 text-rose-900"
+              : "border-amber-200 bg-amber-50/90 text-amber-900"
+          }`}
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-0.5">
+              <p className="font-semibold">
+                {dataStatus === "unavailable"
+                  ? "API Telemetry Unavailable"
+                  : apiWarning
+                    ? "Upstream API Failure — Showing Cached Fallback"
+                    : "Stale Cached Telemetry Warning"}
+              </p>
+              <p className="opacity-90">
+                {staleReason || apiWarning || errorDetail}
+              </p>
+            </div>
+          </div>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="self-start rounded-lg border border-current/25 bg-white px-3 py-1 font-semibold transition hover:bg-slate-50 sm:self-auto"
+            >
+              Retry Live Fetch
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Top row: location + source + timestamps + freshness */}
       <div className="flex flex-col gap-3 border-b border-mist-200/80 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -99,16 +201,35 @@ export default function AirQualityOverview({
               {[location.region, location.country].filter(Boolean).join(", ")}
             </span>
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500">
             <span>
               Coordinates: {location.latitude.toFixed(3)}, {location.longitude.toFixed(3)}
             </span>
             <span>·</span>
-            <span>Source: {source}</span>
+            <span>
+              Source: <strong className="font-medium text-slate-700">{source}</strong>
+            </span>
+            {observationTime && (
+              <>
+                <span>·</span>
+                <span>
+                  Model Time:{" "}
+                  <strong className="font-medium text-slate-700">
+                    {formatObservationTime(observationTime)}
+                  </strong>
+                </span>
+              </>
+            )}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${telemetryMeta.classes}`}
+            title="Open-Meteo provides modeled atmospheric estimates rather than direct ground sensor observations."
+          >
+            {telemetryMeta.label} · Model
+          </span>
           <DataStatusBadge
             status={dataStatus}
             detail={
@@ -130,75 +251,140 @@ export default function AirQualityOverview({
 
       {/* Main metrics + 24h trend chart */}
       <div className="mt-6 grid gap-6 lg:grid-cols-12">
-        {/* AQI Headline Metric */}
-        <div className="flex flex-col justify-between rounded-2xl border border-mist-200 bg-white/90 p-5 lg:col-span-5">
+        {/* AQI Scales Panel */}
+        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-mist-200 bg-white/95 p-5 lg:col-span-5">
+          {/* Indian CPCB AQI Primary Block */}
           <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                US Air Quality Index
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-pine-800">
+                Indian CPCB AQI (NAQI)
               </span>
               <span
-                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${appearance.badgeBg}`}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cpcbAppearance.badgeBg}`}
               >
-                {appearance.category}
+                {indianAqi?.category || "Unavailable"}
               </span>
             </div>
 
-            <div className="mt-4 flex items-baseline gap-3">
+            <div className="mt-3 flex items-baseline gap-3">
               <span
                 className={`font-display text-5xl font-bold tracking-tight ${
-                  isUnavailable ? "text-slate-400" : "text-slate-900"
+                  isCpcbUnavailable ? "text-slate-400" : "text-slate-900"
                 }`}
               >
-                {isUnavailable ? "—" : Math.round(usAqi)}
+                {isCpcbUnavailable ? "Unavailable" : indianAqi.aqi}
               </span>
-              <div className="text-xs text-slate-500">
-                <p className="font-medium text-slate-700">US EPA Scale</p>
-                <p>
-                  European AQI:{" "}
-                  <strong className="text-slate-800">
-                    {europeanAqi !== null && europeanAqi !== undefined
-                      ? Math.round(europeanAqi)
-                      : "Unavailable"}
-                  </strong>
-                </p>
-              </div>
+              {!isCpcbUnavailable && (
+                <div className="text-xs text-slate-600">
+                  <p className="font-semibold text-slate-800">
+                    Prominent: {indianAqi.prominent_pollutant}
+                  </p>
+                  <p>
+                    Valid pollutants: {indianAqi.valid_pollutant_count} (min 3 w/ PM)
+                  </p>
+                </div>
+              )}
             </div>
 
-            <p className="mt-4 text-xs leading-relaxed text-slate-600">
-              {errorDetail && isUnavailable ? errorDetail : appearance.summary}
+            <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-mist-50 p-2.5 text-[11px] leading-relaxed text-slate-600">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pine-700" />
+              <span>
+                {isCpcbUnavailable
+                  ? indianAqi?.unavailable_reason ||
+                    "Required pollutant averages are missing to compute Indian CPCB AQI."
+                  : indianAqi.methodology_note}
+              </span>
             </p>
           </div>
 
-          <div className="mt-5 flex items-center justify-between border-t border-mist-100 pt-3 text-[11px] text-slate-500">
+          {/* US AQI & European AQI Comparison Cards */}
+          <div className="grid grid-cols-2 gap-3 border-t border-mist-100 pt-4">
+            <div className="rounded-xl border border-mist-200 bg-mist-50/60 p-3">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  US AQI
+                </span>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${usAppearance.badgeBg}`}
+                >
+                  {usAppearance.category}
+                </span>
+              </div>
+              <p
+                className={`mt-1.5 font-display text-2xl font-bold ${
+                  isUsUnavailable ? "text-slate-400" : "text-slate-900"
+                }`}
+              >
+                {isUsUnavailable ? "Unavailable" : Math.round(usAqi)}
+              </p>
+              <p className="text-[11px] text-slate-500">US EPA Scale · Open-Meteo</p>
+            </div>
+
+            <div className="rounded-xl border border-mist-200 bg-mist-50/60 p-3">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  European AQI
+                </span>
+                <span className="rounded-full border border-mist-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                  EAQI
+                </span>
+              </div>
+              <p
+                className={`mt-1.5 font-display text-2xl font-bold ${
+                  europeanAqi === null || europeanAqi === undefined
+                    ? "text-slate-400"
+                    : "text-slate-900"
+                }`}
+              >
+                {europeanAqi !== null && europeanAqi !== undefined
+                  ? Math.round(europeanAqi)
+                  : "Unavailable"}
+              </p>
+              <p className="text-[11px] text-slate-500">EU Index · Open-Meteo</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-mist-100 pt-3 text-[11px] text-slate-500">
             <span className="inline-flex items-center gap-1.5">
               <Activity className="h-3.5 w-3.5 text-pine-700" />
               {dataStatus === "live"
-                ? "Verified live reading"
+                ? "Verified live API fetch"
                 : dataStatus === "cached"
-                  ? "Served from TTL cache"
+                  ? isStale
+                    ? "Stale TTL cache"
+                    : "Served from TTL cache"
                   : "No live or cached reading"}
             </span>
-            {fetchedAt && <span>Timestamp: {formatTimestamp(fetchedAt)}</span>}
+            {fetchedAt && <span>Fetched: {formatTimestamp(fetchedAt)} UTC</span>}
           </div>
         </div>
 
         {/* 24-hour trend chart */}
-        <div className="rounded-2xl border border-mist-200 bg-white/90 p-5 lg:col-span-7">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="rounded-2xl border border-mist-200 bg-white/95 p-5 lg:col-span-7">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">
-                24-Hour PM2.5 &amp; US AQI Trend
+                24-Hour PM2.5 &amp; US AQI Trajectory
               </h3>
               <p className="text-xs text-slate-500">
-                Hourly atmospheric trajectory from Open-Meteo
+                Distinguishes Open-Meteo model estimates from upcoming forecast hours
               </p>
             </div>
-            <DataStatusBadge status={dataStatus} compact />
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800">
+                Observed: Ground N/A
+              </span>
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">
+                Estimated (Model)
+              </span>
+              <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-indigo-800">
+                Forecast (Upcoming)
+              </span>
+            </div>
           </div>
 
           {chartData.length === 0 ? (
-            <div className="flex h-52 items-center justify-center rounded-xl border border-dashed border-mist-200 bg-mist-50/50 px-4 text-center">
+            <div className="flex h-60 items-center justify-center rounded-xl border border-dashed border-mist-200 bg-mist-50/50 px-4 text-center">
               <div>
                 <p className="text-sm font-medium text-slate-700">
                   Hourly trend unavailable
@@ -210,16 +396,20 @@ export default function AirQualityOverview({
               </div>
             </div>
           ) : (
-            <div className="h-52 w-full">
+            <div className="h-60 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={chartData}
                   margin={{ top: 8, right: 10, left: -16, bottom: 0 }}
                 >
                   <defs>
-                    <linearGradient id="pm25Gradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="pm25EstimatedGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#0F766E" stopOpacity={0.28} />
                       <stop offset="95%" stopColor="#0F766E" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="pm25ForecastGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#4F46E5" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2EBE6" />
@@ -235,28 +425,32 @@ export default function AirQualityOverview({
                     tickLine={false}
                     axisLine={false}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      borderColor: "#DCE6DF",
-                      fontSize: "12px",
-                    }}
+                  <Tooltip content={<TrendTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="pm25Estimated"
+                    name="PM2.5 Estimated (μg/m³)"
+                    stroke="#0F766E"
+                    strokeWidth={2}
+                    fill="url(#pm25EstimatedGrad)"
+                    connectNulls={false}
                   />
                   <Area
                     type="monotone"
-                    dataKey="pm25"
-                    name="PM2.5 (μg/m³)"
-                    stroke="#0F766E"
+                    dataKey="pm25Forecast"
+                    name="PM2.5 Forecast (μg/m³)"
+                    stroke="#4F46E5"
                     strokeWidth={2}
-                    fill="url(#pm25Gradient)"
-                    connectNulls
+                    strokeDasharray="5 4"
+                    fill="url(#pm25ForecastGrad)"
+                    connectNulls={false}
                   />
                   <Area
                     type="monotone"
                     dataKey="usAqi"
                     name="US AQI"
                     stroke="#F59E0B"
-                    strokeWidth={1.75}
+                    strokeWidth={1.5}
                     fill="none"
                     connectNulls
                   />

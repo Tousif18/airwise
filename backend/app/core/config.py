@@ -1,22 +1,34 @@
 """Backend configuration loaded strictly from environment variables."""
 
 from functools import lru_cache
-from pydantic import Field
+import os
+from pathlib import Path
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    """Application settings sourced from environment variables or .env."""
+    """Application settings sourced from environment variables or optional local .env."""
 
     app_name: str = "AirWise API"
     app_env: str = "development"
-    backend_host: str = "127.0.0.1"
-    backend_port: int = 8000
+    backend_host: str = Field(
+        default="127.0.0.1",
+        validation_alias=AliasChoices("BACKEND_HOST", "HOST"),
+    )
+    backend_port: int = Field(
+        default=8000,
+        validation_alias=AliasChoices("PORT", "BACKEND_PORT"),
+    )
 
     cors_origins_raw: str = Field(
         default="http://localhost:5173,http://127.0.0.1:5173",
         alias="CORS_ORIGINS",
     )
+    frontend_url: str | None = Field(default=None, alias="FRONTEND_URL")
+    cors_origin_regex: str | None = Field(default=None, alias="CORS_ORIGIN_REGEX")
 
     open_meteo_air_quality_url: str = (
         "https://air-quality-api.open-meteo.com/v1/air-quality"
@@ -25,26 +37,58 @@ class Settings(BaseSettings):
         "https://geocoding-api.open-meteo.com/v1/search"
     )
     air_quality_cache_ttl_seconds: int = 600
+    air_quality_stale_warning_seconds: int = 300
+    air_quality_observation_stale_minutes: int = 180
     http_timeout_seconds: float = 10.0
 
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.8-flash"
+    gemini_fallback_models_raw: str = Field(
+        default="gemini-3.5-flash,gemini-3.5-flash-lite",
+        alias="GEMINI_FALLBACK_MODELS",
+    )
+    gemini_timeout_seconds: float = 25.0
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(BACKEND_DIR / ".env"), ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
     )
 
     @property
-    def cors_origins(self) -> list[str]:
-        """Parse comma-separated CORS origins into a clean list."""
+    def resolved_host(self) -> str:
+        """Bind 0.0.0.0 in production or cloud runtimes injecting PORT."""
+        if self.app_env.lower() == "production" or "PORT" in os.environ:
+            if self.backend_host in ("127.0.0.1", "localhost", ""):
+                return "0.0.0.0"
+        return self.backend_host
+
+    @property
+    def gemini_fallback_models(self) -> list[str]:
+        """Parse comma-separated fallback Gemini models for transient 503/504 errors."""
         return [
-            origin.strip()
-            for origin in self.cors_origins_raw.split(",")
-            if origin.strip()
+            model.strip()
+            for model in self.gemini_fallback_models_raw.split(",")
+            if model.strip() and model.strip() != self.gemini_model
         ]
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse comma-separated CORS origins and optional FRONTEND_URL cleanly."""
+        origins: list[str] = []
+        seen: set[str] = set()
+        for raw in self.cors_origins_raw.split(","):
+            cleaned = raw.strip().rstrip("/")
+            if cleaned and cleaned not in seen:
+                origins.append(cleaned)
+                seen.add(cleaned)
+        if self.frontend_url:
+            cleaned_fe = self.frontend_url.strip().rstrip("/")
+            if cleaned_fe and cleaned_fe not in seen:
+                origins.append(cleaned_fe)
+                seen.add(cleaned_fe)
+        return origins
 
     @property
     def gemini_configured(self) -> bool:

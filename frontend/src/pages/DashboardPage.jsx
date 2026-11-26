@@ -56,6 +56,7 @@ export default function DashboardPage({
         loading={familyLoading}
         error={familyError}
         onSaveProfile={onSaveFamilyProfile}
+        presets={presets}
       />
     </div>
   );

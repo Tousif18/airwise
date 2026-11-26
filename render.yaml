@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: airwise-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: APP_NAME
+        value: "AirWise API"
+      - key: APP_ENV
+        value: "production"
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN_REGEX
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-3.8-flash"
+      - key: GEMINI_FALLBACK_MODELS
+        value: "gemini-3.5-flash,gemini-3.5-flash-lite"
+      - key: GEMINI_TIMEOUT_SECONDS
+        value: "25.0"
+      - key: OPEN_METEO_AIR_QUALITY_URL
+        value: "https://air-quality-api.open-meteo.com/v1/air-quality"
+      - key: OPEN_METEO_GEOCODING_URL
+        value: "https://geocoding-api.open-meteo.com/v1/search"
+      - key: AIR_QUALITY_CACHE_TTL_SECONDS
+        value: "600"
+      - key: AIR_QUALITY_STALE_WARNING_SECONDS
+        value: "300"
+      - key: AIR_QUALITY_OBSERVATION_STALE_MINUTES
+        value: "180"
+      - key: HTTP_TIMEOUT_SECONDS
+        value: "10.0"

@@ -7,6 +7,15 @@ from app.schemas.air_quality import DataStatus, LocationOption, LocationSearchRe
 
 PRESET_LOCATIONS: list[LocationOption] = [
     LocationOption(
+        id="kolkata-in",
+        name="Kolkata",
+        region="West Bengal",
+        country="India",
+        latitude=22.5726,
+        longitude=88.3639,
+        timezone="Asia/Kolkata",
+    ),
+    LocationOption(
         id="new-delhi-in",
         name="New Delhi",
         region="Delhi NCR",
@@ -74,6 +83,34 @@ def find_preset_location(location_id: str) -> LocationOption | None:
         if loc.id == location_id:
             return loc
     return None
+
+
+def resolve_location_selection(
+    location_id: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    name: str | None = None,
+    region: str = "",
+    country: str = "",
+    timezone: str = "auto",
+) -> LocationOption | None:
+    """Resolve coordinates, preset ID, or default Kolkata location.
+
+    Returns None when an explicit unknown preset `location_id` is supplied without coordinates.
+    """
+    if latitude is not None and longitude is not None:
+        return LocationOption(
+            id=location_id or f"custom-{round(latitude, 3)}-{round(longitude, 3)}",
+            name=name or f"{latitude:.2f}, {longitude:.2f}",
+            region=region,
+            country=country or "Custom Coordinates",
+            latitude=latitude,
+            longitude=longitude,
+            timezone=timezone,
+        )
+    if location_id:
+        return find_preset_location(location_id)
+    return PRESET_LOCATIONS[0]
 
 
 async def search_locations(

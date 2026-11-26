@@ -56,6 +56,19 @@ npm run dev
 ### 3. Run Tests
 
 ```powershell
+# Backend tests
 cd backend
 .\.venv\Scripts\python.exe -m pytest ..\tests -v
+
+# Frontend emission calculation tests
+cd ..\frontend
+npm test
 ```
+
+## Phase 2 AI Intelligence Endpoints
+
+- `GET /api/v1/family/profile` & `PUT /api/v1/family/profile` — Household profile (backed by browser `localStorage` + FastAPI sync; excludes personal names and medical records).
+- `GET /api/v1/assistant/health` — Reports Gemini SDK readiness and rule-based fallback availability without exposing credentials.
+- `POST /api/v1/assistant/chat` — Grounded conversational Q&A combining Open-Meteo telemetry, separated AQI standards, deterministic decision rules, and Google Gemini (`google-genai`).
+- `POST /api/v1/assistant/recommendations` — Structured household recommendations with priority labels, indoor/outdoor actions, sustainable alternatives, reasoning, and data limitations.
+- `POST /api/v1/indoor/recommendations` — Phase 3 Indoor Air Quality Advisor combining user-provided home environment details with outdoor Open-Meteo telemetry (without fabricating indoor sensor readings).

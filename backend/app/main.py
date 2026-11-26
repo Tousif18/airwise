@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 from app.api.router import api_router
 from app.core.config import get_settings
@@ -13,13 +14,14 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.app_name,
-        version="0.1.0",
-        description="Modular AirWise API for Open-Meteo air quality monitoring and household guidance.",
+        version="0.2.0",
+        description="Modular AirWise API for Open-Meteo air quality monitoring, household guidance, and indoor protection.",
     )
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=settings.cors_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -39,3 +41,12 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+if __name__ == "__main__":
+    runtime_settings = get_settings()
+    uvicorn.run(
+        "app.main:app",
+        host=runtime_settings.resolved_host,
+        port=runtime_settings.backend_port,
+    )

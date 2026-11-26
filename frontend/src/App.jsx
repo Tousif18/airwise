@@ -7,11 +7,13 @@ import IndoorAirGuidePage from "./pages/IndoorAirGuidePage";
 import EnvironmentalImpactPage from "./pages/EnvironmentalImpactPage";
 import {
   fetchAirQuality,
-  fetchAssistantStatus,
+  fetchAssistantHealth,
   fetchFamilyProfile,
   fetchHealth,
   fetchPresetLocations,
+  loadLocalFamilyProfile,
   saveFamilyProfile,
+  saveLocalFamilyProfile,
   searchLocations,
 } from "./services/api";
 
@@ -32,8 +34,8 @@ export default function App() {
   const [airQualityError, setAirQualityError] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [familyProfile, setFamilyProfile] = useState(null);
-  const [familyLoading, setFamilyLoading] = useState(true);
+  const [familyProfile, setFamilyProfile] = useState(() => loadLocalFamilyProfile());
+  const [familyLoading, setFamilyLoading] = useState(() => !loadLocalFamilyProfile());
   const [familyError, setFamilyError] = useState(null);
 
   const loadAirQuality = useCallback(async (location, { forceRefresh = false } = {}) => {
@@ -63,11 +65,12 @@ export default function App() {
     let cancelled = false;
 
     async function bootstrap() {
+      const localProfile = loadLocalFamilyProfile();
       const [healthRes, assistantRes, presetsRes, familyRes] = await Promise.allSettled([
         fetchHealth(),
-        fetchAssistantStatus(),
+        fetchAssistantHealth(),
         fetchPresetLocations(),
-        fetchFamilyProfile(),
+        localProfile ? saveFamilyProfile(localProfile) : fetchFamilyProfile(),
       ]);
 
       if (cancelled) return;
@@ -85,7 +88,10 @@ export default function App() {
         setPresets(list);
         setPresetsLoading(false);
         if (list.length > 0) {
-          setSelectedLocation(list[0]);
+          const preferred =
+            localProfile?.location_id &&
+            list.find((loc) => loc.id === localProfile.location_id);
+          setSelectedLocation(preferred || list[0]);
         } else {
           setAirQualityLoading(false);
         }
@@ -100,7 +106,8 @@ export default function App() {
 
       if (familyRes.status === "fulfilled") {
         setFamilyProfile(familyRes.value);
-      } else {
+        saveLocalFamilyProfile(familyRes.value);
+      } else if (!localProfile) {
         setFamilyError(
           familyRes.reason?.message || "Could not load household profile from backend."
         );
@@ -123,9 +130,24 @@ export default function App() {
 
   const handleSaveFamilyProfile = async (updatedProfile) => {
     setFamilyError(null);
-    const saved = await saveFamilyProfile(updatedProfile);
-    setFamilyProfile(saved);
-    return saved;
+    saveLocalFamilyProfile(updatedProfile);
+    try {
+      const saved = await saveFamilyProfile(updatedProfile);
+      setFamilyProfile(saved);
+      if (saved.location_id) {
+        const matched = presets.find((loc) => loc.id === saved.location_id);
+        if (matched && matched.id !== selectedLocation?.id) {
+          setSelectedLocation(matched);
+        }
+      }
+      return saved;
+    } catch (err) {
+      setFamilyProfile(updatedProfile);
+      setFamilyError(
+        `Saved locally in browser, but backend sync failed: ${err.message}`
+      );
+      throw err;
+    }
   };
 
   const currentNav = NAV_ITEMS.find((item) => item.id === activePage) || NAV_ITEMS[0];
@@ -149,12 +171,17 @@ export default function App() {
               : currentNav.description
           }
           dataStatus={airQuality?.data_status || "unavailable"}
+          isStale={Boolean(airQuality?.is_stale)}
           fetchedAt={airQuality?.fetched_at}
           cachedAt={airQuality?.cached_at}
           isRefreshing={isRefreshing}
           onRefresh={() => loadAirQuality(selectedLocation, { forceRefresh: true })}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
-          showRefresh={activePage === "dashboard"}
+          showRefresh={
+            activePage === "dashboard" ||
+            activePage === "assistant" ||
+            activePage === "indoor"
+          }
         />
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
@@ -183,13 +210,21 @@ export default function App() {
             <AiAssistantPage
               assistantStatus={assistantStatus}
               selectedLocation={selectedLocation}
+              airQuality={airQuality}
+              presets={presets}
               familyProfile={familyProfile}
+              familyLoading={familyLoading}
+              familyError={familyError}
+              onSaveFamilyProfile={handleSaveFamilyProfile}
               onBackToDashboard={() => setActivePage("dashboard")}
             />
           )}
 
           {activePage === "indoor" && (
             <IndoorAirGuidePage
+              selectedLocation={selectedLocation}
+              airQuality={airQuality}
+              familyProfile={familyProfile}
               onBackToDashboard={() => setActivePage("dashboard")}
             />
           )}

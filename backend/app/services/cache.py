@@ -33,9 +33,17 @@ class TTLCache(Generic[T]):
             if entry is None:
                 return None
             if now >= entry.expires_at:
-                del self._store[key]
                 return None
             return entry
+
+    def get_with_staleness(self, key: str) -> tuple[CacheEntry[T] | None, bool]:
+        """Return (entry, is_expired) so callers can fall back to stale cache if live fetch fails."""
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            entry = self._store.get(key)
+            if entry is None:
+                return None, False
+            return entry, now >= entry.expires_at
 
     def set(self, key: str, value: T, ttl_seconds: int | None = None) -> CacheEntry[T]:
         """Store a value with UTC cached_at and expires_at timestamps."""

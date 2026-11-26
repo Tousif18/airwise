@@ -20,23 +20,23 @@ export const NAV_ITEMS = [
   {
     id: "assistant",
     label: "AI Assistant",
-    description: "Gemini smog guidance",
+    description: "Gemini & rule-based smog advice",
     icon: Bot,
-    badge: "Preview",
+    badge: null,
   },
   {
     id: "indoor",
     label: "Indoor Air Guide",
-    description: "Ventilation & HEPA tips",
+    description: "Home ventilation, kitchen & HEPA",
     icon: Home,
-    badge: "Preview",
+    badge: null,
   },
   {
     id: "impact",
     label: "Environmental Impact",
-    description: "Sustainable daily habits",
+    description: "CO₂ avoided & trip tracker",
     icon: Leaf,
-    badge: "Preview",
+    badge: null,
   },
 ];
 

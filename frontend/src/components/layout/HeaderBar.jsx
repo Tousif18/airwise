@@ -7,6 +7,7 @@ export default function HeaderBar({
   title,
   subtitle,
   dataStatus,
+  isStale = false,
   fetchedAt,
   cachedAt,
   isRefreshing,
@@ -16,7 +17,7 @@ export default function HeaderBar({
 }) {
   const timestampDetail =
     dataStatus === "cached" && cachedAt
-      ? `Cached ${formatTimestamp(cachedAt)}`
+      ? `${isStale ? "Stale · " : ""}Cached ${formatTimestamp(cachedAt)}`
       : dataStatus === "live" && fetchedAt
         ? `Updated ${formatTimestamp(fetchedAt)}`
         : null;

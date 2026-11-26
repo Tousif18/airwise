@@ -3,7 +3,6 @@
 from fastapi import APIRouter
 
 from app.core.config import get_settings
-from app.core.dependencies import get_gemini_placeholder_service
 from app.schemas.system import HealthResponse
 
 router = APIRouter(tags=["system"])
@@ -22,9 +21,3 @@ async def health_check() -> HealthResponse:
         gemini_model=settings.gemini_model,
         cache_ttl_seconds=settings.air_quality_cache_ttl_seconds,
     )
-
-
-@router.get("/assistant/status")
-async def assistant_status() -> dict[str, str | bool]:
-    """Return Gemini AI Assistant readiness metadata."""
-    return get_gemini_placeholder_service().get_status()
