@@ -45,6 +45,7 @@ def test_ai_endpoint_returns_429_and_retry_after() -> None:
     limited = client.post("/api/v1/assistant/chat")
     assert limited.status_code == 429
     assert limited.json()["error_code"] == "rate_limit_exceeded"
+    assert limited.json()["detail"] == "Too many requests. Please wait before trying again."
     assert int(limited.headers["Retry-After"]) >= 1
     assert limited.json()["retry_after_seconds"] >= 1
 
