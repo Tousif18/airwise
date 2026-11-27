@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { fetchWithTimeout } from "../src/utils/fetchWithTimeout.js";
 import {
   InFlightRequestManager,
   RefreshCooldownTracker,
@@ -138,4 +139,34 @@ test("classifyTelemetryFeedback separates rate-limited, backend unavailable, no 
     error: null,
   });
   assert.equal(fresh.kind, "fresh_live");
+});
+
+
+test("fetchWithTimeout aborts stalled requests and returns a clear timeout error", async () => {
+  let observedAbort = false;
+  const stalledFetch = (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => {
+      observedAbort = true;
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+    }, { once: true });
+  });
+
+  await assert.rejects(
+    fetchWithTimeout("/assistant/chat", {}, 10, stalledFetch),
+    (error) => {
+      assert.equal(error.name, "TimeoutError");
+      assert.equal(error.isTimeoutError, true);
+      assert.match(error.message, /timed out after 1 seconds/i);
+      return true;
+    }
+  );
+  assert.equal(observedAbort, true);
+});
+
+test("fetchWithTimeout preserves non-timeout network errors", async () => {
+  const networkError = new TypeError("Network unavailable");
+  await assert.rejects(
+    fetchWithTimeout("/assistant/chat", {}, 100, async () => { throw networkError; }),
+    (error) => error === networkError
+  );
 });
