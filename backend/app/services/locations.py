@@ -103,8 +103,14 @@ def resolve_location_selection(
     country: str = "",
     timezone: str = "auto",
 ) -> LocationOption | None:
-    """Resolve coordinates, preset ID, or default Kolkata location."""
-    if latitude is not None and longitude is not None:
+    """Resolve one unambiguous location selection or the default Kolkata location."""
+    has_latitude = latitude is not None
+    has_longitude = longitude is not None
+    if has_latitude != has_longitude:
+        raise ValueError("Both latitude and longitude must be provided together.")
+    if location_id and has_latitude:
+        raise ValueError("Choose either a preset location_id or custom coordinates, not both.")
+    if has_latitude and has_longitude:
         return LocationOption(
             id=location_id or f"custom-{round(latitude, 3)}-{round(longitude, 3)}",
             name=name or f"{latitude:.2f}, {longitude:.2f}",
