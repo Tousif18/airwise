@@ -447,7 +447,7 @@ class OpenMeteoAirQualityService:
                         await asyncio.sleep(self._compute_backoff_delay(attempt))
                         continue
                     raise OpenMeteoUpstreamError(
-                        f"Unable to reach Open-Meteo Air Quality API: {exc}",
+                        "Air-quality data is temporarily unavailable. Please try again.",
                         error_code="upstream_unreachable",
                     ) from exc
 
@@ -501,7 +501,7 @@ class OpenMeteoAirQualityService:
                     return response.json()
                 except ValueError as exc:
                     raise OpenMeteoUpstreamError(
-                        f"Invalid JSON payload from Open-Meteo Air Quality API: {exc}",
+                        "Air-quality data is temporarily unavailable due to an invalid provider response.",
                         error_code="invalid_upstream_payload",
                     ) from exc
 
