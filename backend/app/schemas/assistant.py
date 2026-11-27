@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.schemas.air_quality import DataStatus, ValueKind
 from app.schemas.family import FamilyProfile
-from app.schemas.location_validation import validate_timezone
+from app.schemas.location_validation import validate_coordinate, validate_timezone
 
 
 class PriorityLevel(str, Enum):
