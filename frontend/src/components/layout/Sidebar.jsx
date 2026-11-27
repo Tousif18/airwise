@@ -74,10 +74,12 @@ export default function Sidebar({
     <>
       {/* Mobile top bar trigger */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-xs lg:hidden"
+        <button
+          type="button"
+          className="fixed inset-0 z-30 appearance-none border-0 bg-slate-900/40 p-0 backdrop-blur-xs lg:hidden"
           onClick={() => onToggleMobile(false)}
-          aria-hidden="true"
+          aria-label="Close navigation menu"
+          tabIndex={-1}
         />
       )}
 
