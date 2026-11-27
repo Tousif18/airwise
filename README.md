@@ -25,6 +25,7 @@ The application combines live and cached environmental data with deterministic d
 - **Indoor air-quality advisor:** Get practical indoor protection suggestions using outdoor conditions and user-provided home-environment details. The application does not claim to measure indoor air.
 - **Environmental impact tracker:** Record sustainable actions and view estimated impact. Modelled estimates are identified as estimates, not direct measurements.
 - **Resilient data handling:** Use caching, request controls, and fallback behaviour to handle upstream delays and rate limits more gracefully.
+- **Inbound API protection:** Apply configurable per-IP limits to AI, location-search, and air-quality endpoints, including stricter limits for forced refreshes.
 
 ## Live Deployments
 
