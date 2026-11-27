@@ -2,7 +2,7 @@
 
 from enum import Enum
 from typing import Literal
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.air_quality import DataStatus, ValueKind
 from app.schemas.family import FamilyProfile
@@ -141,6 +141,8 @@ class ChatTurn(BaseModel):
 
 
 class AssistantLocationMixin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     """Shared validated location parameters for assistant requests."""
 
     location_id: str | None = Field(default=None, max_length=80)
