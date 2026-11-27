@@ -5,12 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.api.router import api_router
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
+from app.middleware.rate_limit import RateLimitMiddleware
 
 
-def create_app() -> FastAPI:
+def create_app(settings: Settings | None = None) -> FastAPI:
     """Create and configure the FastAPI application instance."""
-    settings = get_settings()
+    settings = settings or get_settings()
 
     app = FastAPI(
         title=settings.app_name,
@@ -26,6 +27,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    if settings.rate_limit_enabled:
+        app.add_middleware(RateLimitMiddleware, settings=settings)
 
     app.include_router(api_router)
 
