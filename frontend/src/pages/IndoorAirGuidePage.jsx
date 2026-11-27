@@ -130,8 +130,16 @@ export default function IndoorAirGuidePage({
     }
   };
 
+  const updateHomeEnv = (updater) => {
+    setHomeEnv((prev) =>
+      typeof updater === "function" ? updater(prev) : updater
+    );
+    setResult(null);
+    setError(null);
+  };
+
   const toggleFlag = (field) => {
-    setHomeEnv((prev) => ({ ...prev, [field]: !prev[field] }));
+    updateHomeEnv((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   return (
@@ -211,7 +219,7 @@ export default function IndoorAirGuidePage({
               <select
                 value={homeEnv.home_type}
                 onChange={(e) =>
-                  setHomeEnv((prev) => ({ ...prev, home_type: e.target.value }))
+                  updateHomeEnv((prev) => ({ ...prev, home_type: e.target.value }))
                 }
                 className="mt-1 w-full rounded-xl border border-mist-200 bg-white px-3 py-2 text-sm focus:border-pine-600 focus:outline-none"
               >
@@ -230,7 +238,7 @@ export default function IndoorAirGuidePage({
                 max={20}
                 value={homeEnv.room_count}
                 onChange={(e) =>
-                  setHomeEnv((prev) => ({
+                  updateHomeEnv((prev) => ({
                     ...prev,
                     room_count: Math.min(20, Math.max(1, Number(e.target.value) || 1)),
                   }))
@@ -246,7 +254,7 @@ export default function IndoorAirGuidePage({
               <select
                 value={homeEnv.kitchen_ventilation}
                 onChange={(e) =>
-                  setHomeEnv((prev) => ({
+                  updateHomeEnv((prev) => ({
                     ...prev,
                     kitchen_ventilation: e.target.value,
                   }))
@@ -267,7 +275,7 @@ export default function IndoorAirGuidePage({
               <select
                 value={homeEnv.windows_ventilation}
                 onChange={(e) =>
-                  setHomeEnv((prev) => ({
+                  updateHomeEnv((prev) => ({
                     ...prev,
                     windows_ventilation: e.target.value,
                   }))
@@ -313,7 +321,7 @@ export default function IndoorAirGuidePage({
                 maxLength={240}
                 value={homeEnv.notes || ""}
                 onChange={(e) =>
-                  setHomeEnv((prev) => ({ ...prev, notes: e.target.value }))
+                  updateHomeEnv((prev) => ({ ...prev, notes: e.target.value }))
                 }
                 placeholder="Optional details without personal names or medical records"
                 className="mt-1 w-full rounded-xl border border-mist-200 px-3 py-2 text-sm focus:border-pine-600 focus:outline-none"
