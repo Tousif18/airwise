@@ -224,6 +224,8 @@ export default function RecommendationCards({ data }) {
       <div className="rounded-2xl border border-mist-200 bg-mist-50/70 p-4">
         <button
           type="button"
+          aria-expanded={showReasoning}
+          aria-controls="recommendation-explanation"
           onClick={() => setShowReasoning((prev) => !prev)}
           className="flex w-full items-center justify-between text-left"
         >
@@ -239,7 +241,10 @@ export default function RecommendationCards({ data }) {
         </button>
 
         {showReasoning && (
-          <div className="mt-3 space-y-2.5 border-t border-mist-200 pt-3 text-xs leading-relaxed text-slate-700">
+          <div
+            id="recommendation-explanation"
+            className="mt-3 space-y-2.5 border-t border-mist-200 pt-3 text-xs leading-relaxed text-slate-700"
+          >
             <p>
               <span className="font-semibold text-slate-900">Reasoning: </span>
               {data.reasoning}
