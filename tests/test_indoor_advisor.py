@@ -271,3 +271,35 @@ def test_indoor_recommendations_endpoint_validation_and_response() -> None:
         assert "not medical advice" in body["disclaimer"].lower()
     finally:
         app.dependency_overrides.clear()
+
+
+
+@pytest.mark.asyncio
+async def test_cross_ventilation_advice_stays_cautious_when_outdoor_data_is_unavailable() -> None:
+    settings = Settings(gemini_api_key="")
+    advisor = IndoorAirAdvisorService(
+        settings=settings,
+        gemini_service=GeminiAssistantService(settings),
+    )
+    home = _sample_home().model_copy(
+        update={"windows_ventilation": WindowVentilationType.CROSS_VENTILATION}
+    )
+
+    response = await advisor.generate_recommendations(
+        home=home,
+        air_quality=_sample_outdoor_aq(available=False),
+    )
+
+    ventilation = next(
+        card
+        for card in response.recommendations
+        if card.category == IndoorRecommendationCategory.SAFE_VENTILATION
+    )
+    combined_advice = " ".join(
+        [ventilation.title, ventilation.description, *ventilation.action_steps]
+    ).lower()
+
+    assert "unavailable" in response.ventilation_verdict.lower()
+    assert "15–20 minutes" not in combined_advice
+    assert "cleaner hours" not in combined_advice
+    assert "brief cautious airing" in combined_advice
