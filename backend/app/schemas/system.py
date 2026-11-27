@@ -13,3 +13,12 @@ class HealthResponse(BaseModel):
     gemini_configured: bool
     gemini_model: str
     cache_ttl_seconds: int
+
+
+class ReadinessResponse(BaseModel):
+    """Local configuration checks used to decide whether the API can serve traffic."""
+
+    status: str
+    app_name: str
+    environment: str
+    checks: dict[str, bool]
