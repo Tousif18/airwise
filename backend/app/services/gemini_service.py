@@ -229,17 +229,12 @@ class GeminiAssistantService:
                 api_key = self._settings.gemini_api_key
                 err_code = getattr(exc, "code", None)
                 err_status = getattr(exc, "status", None)
-                err_msg = sanitize_error_message(
-                    str(getattr(exc, "message", None) or exc),
-                    api_key=api_key,
-                )
                 logger.warning(
-                    "Gemini call failed (model=%s, type=%s, code=%s, status=%s, detail=%s)",
+                    "Gemini call failed (model=%s, type=%s, code=%s, status=%s)",
                     model_name,
                     type(exc).__name__,
                     err_code,
                     err_status,
-                    err_msg,
                 )
                 has_more = idx < len(candidate_models) - 1
                 if has_more and _is_transient_api_error(exc):
