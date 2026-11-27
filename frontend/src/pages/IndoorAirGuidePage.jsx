@@ -100,23 +100,31 @@ export default function IndoorAirGuidePage({
     setLoading(false);
   }, [selectedLocationId]);
 
-  const buildLocationPayload = () => {
-    if (selectedLocation?.latitude != null && selectedLocation?.longitude != null) {
-      return {
-        location_id: selectedLocation.id,
-        latitude: selectedLocation.latitude,
-        longitude: selectedLocation.longitude,
-        location_name: selectedLocation.name,
-        region: selectedLocation.region || "",
-        country: selectedLocation.country || "",
-        timezone: selectedLocation.timezone || "auto",
-      };
-    }
-    if (selectedLocation?.id) {
-      return { location_id: selectedLocation.id };
-    }
-    return {};
-  };
+  
+const buildLocationPayload = () => {
+  if (
+    selectedLocation?.latitude != null &&
+    selectedLocation?.longitude != null
+  ) {
+    return {
+      latitude: selectedLocation.latitude,
+      longitude: selectedLocation.longitude,
+      location_name: selectedLocation.name,
+      region: selectedLocation.region || "",
+      country: selectedLocation.country || "",
+      timezone: selectedLocation.timezone || "auto",
+    };
+  }
+
+  if (selectedLocation?.id) {
+    return {
+      location_id: selectedLocation.id,
+    };
+  }
+
+  return {};
+};
+
 
   const handleGenerate = async (event) => {
     if (event) event.preventDefault();
