@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Bot,
   Home,
@@ -48,6 +49,18 @@ export default function Sidebar({
   backendHealth,
   closeButtonRef,
 }) {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const updateDesktopState = () => setIsDesktop(desktopQuery.matches);
+
+    updateDesktopState();
+    desktopQuery.addEventListener("change", updateDesktopState);
+
+    return () => desktopQuery.removeEventListener("change", updateDesktopState);
+  }, []);
+
   const handleSelect = (id) => {
     onSelectPage(id);
     if (mobileOpen) {
@@ -72,7 +85,7 @@ export default function Sidebar({
         }`}
         id="primary-navigation"
         aria-label="Primary Navigation"
-        inert={!mobileOpen ? true : undefined}
+        inert={!isDesktop && !mobileOpen ? true : undefined}
       >
         {/* Brand header */}
         <div className="flex items-center justify-between border-b border-mist-200 px-5 py-5">
