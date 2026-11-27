@@ -172,6 +172,30 @@ export function getActivityModeFactorKgPerKm(activityType, rawAssumptions = DEFA
   }
 }
 
+/**
+ * Validate and normalize records loaded from browser storage before aggregation.
+ * Stored values are treated as untrusted input; only the same ranges accepted
+ * by the activity form are included in summaries.
+ */
+export function normalizeStoredActivityRecord(record) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return null;
+  if (!VALID_ACTIVITY_IDS.has(record.activityType)) return null;
+  if (!Number.isInteger(record.trips) || record.trips < 1 || record.trips > 50) return null;
+  if (
+    typeof record.distanceKm !== "number" ||
+    !Number.isFinite(record.distanceKm) ||
+    record.distanceKm <= 0 ||
+    record.distanceKm > 1000
+  ) return null;
+  if (!isValidIsoDate(record.date)) return null;
+
+  return {
+    ...record,
+    trips: record.trips,
+    distanceKm: roundTo(record.distanceKm, 2),
+  };
+}
+
 export function calculateActivityImpact(record, rawAssumptions = DEFAULT_EMISSION_ASSUMPTIONS) {
   const assumptions = normalizeAssumptions(rawAssumptions);
   const trips = Math.max(0, Number(record?.trips) || 0);
@@ -251,7 +275,8 @@ export function summarizeImpact(
   }
 
   const enrichedRecords = safeRecords
-    .filter((rec) => rec && VALID_ACTIVITY_IDS.has(rec.activityType) && isValidIsoDate(rec.date))
+    .map(normalizeStoredActivityRecord)
+    .filter((rec) => rec !== null)
     .map((rec) => {
       const impact = calculateActivityImpact(rec, assumptions);
       totalCo2AvoidedKg += impact.co2AvoidedKg;
