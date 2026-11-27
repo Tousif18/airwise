@@ -314,6 +314,31 @@ async def test_gemini_unavailable_when_api_key_missing_returns_rule_based_fallba
 
 
 @pytest.mark.asyncio
+async def test_gemini_exception_logs_metadata_without_exception_details(caplog) -> None:
+    class FailingModels:
+        async def generate_content(self, **kwargs):
+            raise RuntimeError("private upstream diagnostic payload")
+
+    service = GeminiAssistantService(
+        Settings(gemini_api_key="test-key", gemini_model="gemini-2.5-flash"),
+        client_factory=lambda *_: SimpleNamespace(aio=SimpleNamespace(models=FailingModels())),
+    )
+
+    with caplog.at_level("WARNING", logger="app.services.gemini_service"):
+        result = await service.generate_guidance(
+            air_quality=_sample_air_quality(),
+            profile=_sample_profile(),
+            question="Should we ventilate our home right now?",
+        )
+
+    assert result.response_source == ResponseSourceMode.RULE_BASED_FALLBACK
+    assert "Gemini call failed" in caplog.text
+    assert "gemini-2.5-flash" in caplog.text
+    assert "RuntimeError" in caplog.text
+    assert "private upstream diagnostic payload" not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_gemini_exception_falls_back_gracefully() -> None:
     class FailingModels:
         async def generate_content(self, **kwargs):
