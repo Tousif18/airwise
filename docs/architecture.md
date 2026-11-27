@@ -20,8 +20,21 @@
 
 ## Environment Variables
 
-- `backend/.env`: `CORS_ORIGINS`, `OPEN_METEO_AIR_QUALITY_URL`, `OPEN_METEO_GEOCODING_URL`, `AIR_QUALITY_CACHE_TTL_SECONDS`, `AIR_QUALITY_STALE_WARNING_SECONDS`, `AIR_QUALITY_OBSERVATION_STALE_MINUTES`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TIMEOUT_SECONDS`.
-- `frontend/.env`: `VITE_API_BASE_URL`.
+Backend settings are configured in `backend/.env` for local development or as environment variables in the deployment platform. Start with [`backend/.env.example`](../backend/.env.example). Do not commit real API keys or other secrets.
+
+| Group | Variables | Purpose |
+|---|---|---|
+| Application | `APP_NAME`, `APP_ENV`, `BACKEND_HOST`, `BACKEND_PORT` | API name, runtime environment, bind host, and port |
+| CORS | `CORS_ORIGINS`, `FRONTEND_URL`, `CORS_ORIGIN_REGEX` | Allowed frontend origins and optional preview-deployment origin matching |
+| Open-Meteo endpoints | `OPEN_METEO_AIR_QUALITY_URL`, `OPEN_METEO_GEOCODING_URL` | Upstream air-quality and geocoding API endpoints |
+| Air-quality cache and freshness | `AIR_QUALITY_CACHE_TTL_SECONDS`, `AIR_QUALITY_STALE_WARNING_SECONDS`, `AIR_QUALITY_OBSERVATION_STALE_MINUTES` | Cache lifetime, stale-data warning threshold, and observation staleness threshold |
+| Air-quality resilience | `AIR_QUALITY_RATE_LIMIT_COOLDOWN_SECONDS`, `AIR_QUALITY_MAX_RETRIES`, `AIR_QUALITY_RETRY_BASE_DELAY_SECONDS`, `AIR_QUALITY_RETRY_MAX_DELAY_SECONDS` | Rate-limit cooldown and bounded retry/backoff behaviour |
+| Geocoding cache | `GEOCODING_CACHE_TTL_SECONDS` | Cache lifetime for normalized location searches |
+| HTTP client | `HTTP_TIMEOUT_SECONDS` | Timeout for upstream HTTP requests |
+| Gemini assistant | `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`, `GEMINI_TIMEOUT_SECONDS` | Backend-only Gemini credentials, primary and fallback model IDs, and request timeout |
+| Frontend | `VITE_API_BASE_URL` | Base URL used by the frontend to reach the backend API |
+
+The Open-Meteo public APIs do not require an API key. Keep `GEMINI_API_KEY` private and configure it only in the backend environment; never expose it through a `VITE_*` frontend variable.
 
 ## Phase 2: AirWise AI Intelligence
 
