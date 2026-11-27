@@ -72,6 +72,7 @@ export default function Sidebar({
         }`}
         id="primary-navigation"
         aria-label="Primary Navigation"
+        inert={!mobileOpen ? true : undefined}
       >
         {/* Brand header */}
         <div className="flex items-center justify-between border-b border-mist-200 px-5 py-5">
