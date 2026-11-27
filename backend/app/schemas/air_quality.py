@@ -2,7 +2,9 @@
 
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator\n\nfrom app.schemas.location_validation import validate_coordinate
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.location_validation import validate_coordinate
 
 
 class DataStatus(str, Enum):
