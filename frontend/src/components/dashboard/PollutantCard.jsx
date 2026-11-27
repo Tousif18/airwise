@@ -19,9 +19,6 @@ export default function PollutantCard({ pollutant }) {
   } = pollutant;
 
   const isUnavailable = status === "unavailable" || value === null || value === undefined;
-  const ratio =
-    !isUnavailable && guideline ? Math.min(100, Math.round((value / guideline) * 100)) : 0;
-  const exceedsGuideline = !isUnavailable && guideline ? value > guideline : false;
   const kindMeta = getValueKindMeta(valueKind);
 
   return (
@@ -56,6 +53,9 @@ export default function PollutantCard({ pollutant }) {
             <span className="text-xs font-medium text-slate-500">{unit}</span>
           )}
         </div>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Current model estimate · Not a ground-station observation
+        </p>
 
         {/* CPCB Sub-Index pill */}
         <div className="mt-2.5 rounded-xl bg-mist-50 px-3 py-2 text-[11px]">
@@ -85,34 +85,16 @@ export default function PollutantCard({ pollutant }) {
 
       <div className="mt-4 border-t border-mist-100 pt-3">
         {guideline ? (
-          <>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">
-                WHO 24h guideline: {guideline} {unit}
-              </span>
-              {!isUnavailable && (
-                <span
-                  className={`font-semibold ${
-                    exceedsGuideline ? "text-amber-700" : "text-emerald-700"
-                  }`}
-                >
-                  {exceedsGuideline ? "Above guideline" : "Within guideline"}
-                </span>
-              )}
-            </div>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-mist-100">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  isUnavailable
-                    ? "w-0 bg-slate-300"
-                    : exceedsGuideline
-                      ? "bg-amber-500"
-                      : "bg-emerald-500"
-                }`}
-                style={{ width: isUnavailable ? "0%" : `${Math.max(8, ratio)}%` }}
-              />
-            </div>
-          </>
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium text-slate-600">
+              WHO 24-hour guideline reference: {guideline} {unit}
+            </p>
+            <p className="text-[10px] leading-relaxed text-slate-500">
+              This is a 24-hour average reference. The current model estimate above
+              is not directly comparable and should not be classified as above or
+              within this guideline.
+            </p>
+          </div>
         ) : (
           <span className="text-[11px] text-slate-400">
             Reference threshold not configured
