@@ -229,6 +229,37 @@ async def test_http_429_falls_back_to_stale_cached_data_with_original_timestamps
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure",
+    [
+        httpx.ConnectError("sensitive connection detail"),
+        httpx.Response(502, text="sensitive upstream response body"),
+    ],
+)
+async def test_geocoding_failures_return_safe_error_detail(failure, caplog) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if isinstance(failure, Exception):
+            raise failure
+        return failure
+
+    service = LocationSearchService(
+        Settings(
+            air_quality_max_retries=0,
+            air_quality_retry_base_delay_seconds=0.0,
+        )
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await service.search("SensitiveTestCity", client=client)
+
+    assert result.data_status == DataStatus.UNAVAILABLE
+    assert result.error_detail == (
+        "Location search is temporarily unavailable. Please try again."
+    )
+    assert "sensitive connection detail" not in str(result.model_dump())
+    assert "sensitive upstream response body" not in str(result.model_dump())
+
+
+@pytest.mark.asyncio
 async def test_geocoding_caching_coalescing_and_429_protection() -> None:
     calls = 0
 
