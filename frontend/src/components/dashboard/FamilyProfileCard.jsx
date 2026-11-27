@@ -170,6 +170,9 @@ export default function FamilyProfileCard({
             type="button"
             onClick={() => {
               setFormError(null);
+              if (editing) {
+                setDraft(normalizeDraft(profile));
+              }
               setEditing((prev) => !prev);
             }}
             className="inline-flex items-center gap-1.5 rounded-xl border border-mist-200 bg-mist-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-mist-100"
@@ -509,6 +512,7 @@ export default function FamilyProfileCard({
               type="button"
               onClick={() => {
                 setFormError(null);
+                setSaveMessage(null);
                 setDraft(normalizeDraft(profile));
                 setEditing(false);
               }}
