@@ -6,6 +6,7 @@ import {
   summarizeImpact,
   validateActivityInput,
   validateAssumptionsInput,
+  normalizeStoredActivityRecord,
 } from "../src/utils/emissions.js";
 
 test("calculateActivityImpact computes transparent savings against baseline", () => {
@@ -120,4 +121,60 @@ test("summarizeImpact computes weekly, monthly, total metrics and handles empty 
   assert.equal(summary.totalDistanceKm, 40);
   assert.equal(summary.totalCo2AvoidedKg, 5.82);
   assert.equal(summary.weeklyRecords.length, 2);
+});
+
+
+test("normalizeStoredActivityRecord accepts and normalizes valid persisted records", () => {
+  const normalized = normalizeStoredActivityRecord({
+    id: "saved-1",
+    activityType: "public_transport",
+    trips: 2,
+    distanceKm: 3.456,
+    date: "2026-11-27",
+  });
+
+  assert.deepEqual(normalized, {
+    id: "saved-1",
+    activityType: "public_transport",
+    trips: 2,
+    distanceKm: 3.46,
+    date: "2026-11-27",
+  });
+});
+
+test("normalizeStoredActivityRecord rejects malformed or out-of-range records", () => {
+  const invalidRecords = [
+    null,
+    [],
+    { activityType: "unknown", trips: 1, distanceKm: 2, date: "2026-11-27" },
+    { activityType: "public_transport", trips: "2", distanceKm: 2, date: "2026-11-27" },
+    { activityType: "public_transport", trips: 0, distanceKm: 2, date: "2026-11-27" },
+    { activityType: "public_transport", trips: 51, distanceKm: 2, date: "2026-11-27" },
+    { activityType: "public_transport", trips: 1, distanceKm: -2, date: "2026-11-27" },
+    { activityType: "public_transport", trips: 1, distanceKm: 1001, date: "2026-11-27" },
+    { activityType: "public_transport", trips: 1, distanceKm: "2", date: "2026-11-27" },
+    { activityType: "public_transport", trips: 1, distanceKm: 2, date: "2026-02-30" },
+  ];
+
+  for (const record of invalidRecords) {
+    assert.equal(normalizeStoredActivityRecord(record), null);
+  }
+});
+
+test("summarizeImpact excludes malformed persisted records from every aggregate", () => {
+  const records = [
+    { id: "valid", activityType: "walking_cycling", trips: 2, distanceKm: 5, date: "2026-11-27" },
+    { id: "string-trips", activityType: "walking_cycling", trips: "20", distanceKm: 5, date: "2026-11-27" },
+    { id: "negative-distance", activityType: "walking_cycling", trips: 2, distanceKm: -5, date: "2026-11-27" },
+    { id: "bad-date", activityType: "walking_cycling", trips: 2, distanceKm: 5, date: "2026-02-30" },
+  ];
+
+  const summary = summarizeImpact(records, DEFAULT_EMISSION_ASSUMPTIONS, "2026-11-27");
+
+  assert.equal(summary.totalTrips, 2);
+  assert.equal(summary.totalDistanceKm, 10);
+  assert.equal(summary.totalCo2AvoidedKg, 1.71);
+  assert.equal(summary.weeklyTrips, 2);
+  assert.equal(summary.monthlyTrips, 2);
+  assert.deepEqual(summary.enrichedRecords.map((record) => record.id), ["valid"]);
 });
