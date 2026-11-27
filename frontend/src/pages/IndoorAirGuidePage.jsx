@@ -410,6 +410,13 @@ export default function IndoorAirGuidePage({
                     Stale Outdoor Telemetry
                   </span>
                 )}
+
+                {result.data_attribution?.outdoor_data_status === "unavailable" && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-900">
+                    <AlertTriangle className="h-3 w-3" />
+                    Outdoor Data Unavailable
+                  </span>
+                )}
               </div>
 
               <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
