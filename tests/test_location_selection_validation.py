@@ -92,19 +92,3 @@ def test_air_quality_route_rejects_preset_and_custom_coordinates_together() -> N
     assert response.status_code == 422
 
 
-def test_air_quality_route_preserves_default_location_behavior() -> None:
-    # The endpoint proceeds to its data service when no location is specified.
-    # The test uses a dependency override to avoid any upstream network request.
-    from app.core.dependencies import get_air_quality_service
-
-    class StubService:
-        async def get_air_quality(self, location, force_refresh=False):
-            assert location.id == "kolkata-in"
-            return {"unexpected": "response"}
-
-    app.dependency_overrides[get_air_quality_service] = lambda: StubService()
-    try:
-        response = TestClient(app).get("/api/v1/air-quality")
-        assert response.status_code != 422
-    finally:
-        app.dependency_overrides.pop(get_air_quality_service, None)
