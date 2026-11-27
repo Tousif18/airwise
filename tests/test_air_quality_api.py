@@ -113,6 +113,33 @@ def test_location_search_accepts_its_documented_query_parameter(
     assert response.status_code == 200
     assert response.json()["locations"] == []
 
+
+def test_openapi_documents_standard_error_response_models(client: TestClient) -> None:
+    schema = client.get("/openapi.json").json()
+    components = schema["components"]["schemas"]
+
+    assert "ErrorResponse" in components
+    assert components["ErrorResponse"]["properties"]["error_code"]["type"] == "string"
+    assert "detail" in components["ErrorResponse"]["properties"]
+
+    assert "RateLimitErrorResponse" in components
+    assert "retry_after_seconds" in components["RateLimitErrorResponse"]["properties"]
+
+    documented_responses = {
+        ("/api/v1/air-quality", "get"): {"404", "422", "429"},
+        ("/api/v1/assistant/chat", "post"): {"400", "404", "413", "422", "429"},
+        ("/api/v1/assistant/recommendations", "post"): {"400", "404", "413", "422", "429"},
+        ("/api/v1/indoor/recommendations", "post"): {"400", "404", "413", "422", "429"},
+        ("/api/v1/locations/search", "get"): {"422", "429"},
+        ("/api/v1/health", "get"): {"422"},
+    }
+    for (path, method), expected_codes in documented_responses.items():
+        responses = schema["paths"][path][method]["responses"]
+        assert expected_codes.issubset(responses.keys())
+        for code in expected_codes:
+            assert "application/json" in responses[code]["content"]
+            assert "$ref" in responses[code]["content"]["application/json"]["schema"]
+
 def test_health_endpoint(client: TestClient) -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
