@@ -210,40 +210,11 @@ def test_family_profile_validation_rejects_excess_dependents() -> None:
         _sample_profile(household_size=2, children_count=2, elderly_count=1)
 
 
-def test_family_profile_v1_endpoints_roundtrip() -> None:
+def test_family_profile_is_not_exposed_by_shared_backend_endpoints() -> None:
     client = TestClient(app)
-    res = client.get("/api/v1/family/profile")
-    assert res.status_code == 200
-
-    payload = {
-        "city": "New Delhi",
-        "location_id": "new-delhi-in",
-        "location_label": "New Delhi, Delhi NCR, India",
-        "household_size": 5,
-        "children_count": 2,
-        "elderly_count": 1,
-        "has_respiratory_condition": True,
-        "respiratory_vulnerability": "Winter smog cough",
-        "sensitivity_level": "high",
-        "commute_method": "public_transit",
-        "outdoor_activity_schedule": "School drop-off at 7:45 AM",
-        "ventilation_preference": "sealed_with_filtration",
-        "has_air_purifier": True,
-    }
-    put_res = client.put("/api/v1/family/profile", json=payload)
-    assert put_res.status_code == 200
-    saved = put_res.json()
-    assert saved["city"] == "New Delhi"
-    assert saved["children_count"] == 2
-    assert saved["elderly_count"] == 1
-    assert saved["commute_method"] == "public_transit"
-    assert saved["ventilation_preference"] == "sealed_with_filtration"
-
-    invalid_put = client.put(
-        "/api/v1/family/profile",
-        json={**payload, "household_size": 2, "children_count": 2, "elderly_count": 1},
-    )
-    assert invalid_put.status_code == 422
+    for path in ("/api/v1/family/profile", "/api/v1/family-profile"):
+        assert client.get(path).status_code == 404
+        assert client.put(path, json=_sample_profile().model_dump(mode="json")).status_code == 404
 
 
 # ---------------------------------------------------------------------------
