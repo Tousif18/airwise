@@ -88,6 +88,19 @@ def test_cors_accepts_vercel_origins_and_preview_regex(monkeypatch) -> None:
             preview_res.headers.get("access-control-allow-origin")
             == "https://airwise-git-main-user.vercel.app"
         )
+        assert preview_res.headers.get("access-control-allow-credentials") is None
+        assert preview_res.headers.get("access-control-allow-methods") == "GET, POST, OPTIONS"
+        assert preview_res.headers.get("access-control-allow-headers") == "Accept, Content-Type"
+
+        # Similar-looking or suffix-spoofed domains must not match the preview regex.
+        spoofed_res = client.options(
+            "/api/v1/assistant/chat",
+            headers={
+                "Origin": "https://airwise-preview.vercel.app.attacker.example",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        assert spoofed_res.headers.get("access-control-allow-origin") is None
 
         # Empty CORS_ORIGIN_REGEX="" must become None and NOT allow arbitrary origins
         monkeypatch.setenv("CORS_ORIGIN_REGEX", "")
