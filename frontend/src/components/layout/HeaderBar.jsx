@@ -15,6 +15,7 @@ export default function HeaderBar({
   onRefresh,
   onOpenMobileMenu,
   mobileMenuOpen = false,
+  mobileMenuButtonRef,
   showRefresh = true,
 }) {
   const timestampDetail =
@@ -30,7 +31,11 @@ export default function HeaderBar({
     <header className="sticky top-0 z-20 border-b border-mist-200 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <MobileMenuButton onClick={onOpenMobileMenu} expanded={mobileMenuOpen} />
+          <MobileMenuButton
+            onClick={onOpenMobileMenu}
+            expanded={mobileMenuOpen}
+            buttonRef={mobileMenuButtonRef}
+          />
           <div>
             <h1 className="font-display text-lg font-bold text-slate-900 sm:text-xl">
               {title}
