@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.core.dependencies import get_air_quality_service
 from app.schemas.air_quality import AirQualityOverviewResponse
+from app.schemas.errors import ErrorResponse, RateLimitErrorResponse
 from app.services.locations import resolve_location_selection
 
 router = APIRouter(prefix="/air-quality", tags=["air-quality"])
@@ -20,7 +21,15 @@ _ALLOWED_QUERY_PARAMETERS = {
 }
 
 
-@router.get("", response_model=AirQualityOverviewResponse)
+@router.get(
+    "",
+    response_model=AirQualityOverviewResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Unknown preset location."},
+        422: {"model": ErrorResponse, "description": "Invalid query parameters or location selection."},
+        429: {"model": RateLimitErrorResponse, "description": "Air-quality request rate limit exceeded."},
+    },
+)
 async def get_air_quality_overview(
     request: Request,
     location_id: str | None = Query(default=None, description="Preset location ID"),
