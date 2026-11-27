@@ -101,6 +101,7 @@ export default function App() {
     new RefreshCooldownTracker({ defaultCooldownMs: DEFAULT_REFRESH_COOLDOWN_MS })
   );
   const isRefreshingRef = useRef(false);
+  const airQualityRequestIdRef = useRef(0);
   const lastFetchedLocationKeyRef = useRef(null);
 
   // Tick manual refresh cooldown timer once per second while active
@@ -124,11 +125,15 @@ export default function App() {
     } else {
       setAirQualityLoading(true);
     }
+
+    const requestId = ++airQualityRequestIdRef.current;
     setAirQualityError(null);
 
     try {
       const data = await fetchAirQuality(location, { forceRefresh });
-      setAirQuality(data);
+      if (requestId === airQualityRequestIdRef.current) {
+        setAirQuality(data);
+      }
 
       if (data?.rate_limited) {
         const remaining = cooldownTrackerRef.current.recordAttempt({
@@ -140,17 +145,23 @@ export default function App() {
         setRefreshCooldownSeconds(remaining);
       }
     } catch (err) {
-      setAirQualityError(
-        err.message || "Unable to reach the AirWise backend for air quality telemetry."
-      );
+      if (requestId === airQualityRequestIdRef.current) {
+        setAirQualityError(
+          err.message || "Unable to reach the AirWise backend for air quality telemetry."
+        );
+      }
       if (forceRefresh) {
         const remaining = cooldownTrackerRef.current.recordAttempt();
         setRefreshCooldownSeconds(remaining);
       }
     } finally {
-      setAirQualityLoading(false);
-      setIsRefreshing(false);
-      isRefreshingRef.current = false;
+      if (requestId === airQualityRequestIdRef.current) {
+        setAirQualityLoading(false);
+      }
+      if (forceRefresh) {
+        setIsRefreshing(false);
+        isRefreshingRef.current = false;
+      }
     }
   }, []);
 
