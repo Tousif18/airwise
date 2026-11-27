@@ -61,7 +61,21 @@ def test_ai_endpoints_reject_oversized_request_bodies() -> None:
         )
         assert response.status_code == 413
         assert response.json()["error_code"] == "request_body_too_large"
+        assert response.json()["detail"] == "Request body is too large. Maximum size is 64 KB."
 
+
+
+def test_invalid_content_length_returns_machine_readable_error() -> None:
+    response = _client().post(
+        "/api/v1/assistant/chat",
+        content=b'{"question":"hello"}',
+        headers={"Content-Type": "application/json", "Content-Length": "invalid"},
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Invalid Content-Length header.",
+        "error_code": "invalid_content_length",
+    }
 
 def test_request_size_limit_does_not_change_other_endpoints() -> None:
     response = _client().post(
