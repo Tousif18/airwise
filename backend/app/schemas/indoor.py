@@ -1,9 +1,10 @@
 """Pydantic schemas for Phase 3: Indoor Air Quality Advisor."""
 
 from enum import Enum
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.air_quality import DataStatus, ValueKind
+from app.schemas.location_validation import validate_timezone
 from app.schemas.assistant import (
     CurrentConditionsSummary,
     PriorityLevel,
@@ -107,6 +108,11 @@ class IndoorAdvisorRequest(BaseModel):
     country: str = Field(default="", max_length=120)
     timezone: str = Field(default="auto", max_length=64)
     force_refresh: bool = False
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone_name(cls, value: str) -> str:
+        return validate_timezone(value)
 
     @model_validator(mode="after")
     def validate_coordinate_pair(self) -> "IndoorAdvisorRequest":
