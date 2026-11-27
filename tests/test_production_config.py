@@ -31,7 +31,7 @@ def test_settings_loads_from_os_environ_without_env_file(monkeypatch) -> None:
         "http://localhost:5173",
         "https://airwise-custom.vercel.app",
     ]
-    assert settings.cors_origin_regex == r"https://airwise-.*\.vercel\.app"
+    assert settings.cors_origin_regex == r"^https://airwise-[a-z0-9-]+\.vercel\.app$"
 
 
 def test_health_endpoints_work_without_gemini_api_key(monkeypatch) -> None:
@@ -90,7 +90,7 @@ def test_cors_accepts_vercel_origins_and_preview_regex(monkeypatch) -> None:
         )
         assert preview_res.headers.get("access-control-allow-credentials") is None
         assert preview_res.headers.get("access-control-allow-methods") == "GET, POST, OPTIONS"
-        assert preview_res.headers.get("access-control-allow-headers") == "Accept, Content-Type"
+        assert preview_res.headers.get("access-control-allow-headers") == "Accept, Accept-Language, Content-Language, Content-Type"
 
         # Similar-looking or suffix-spoofed domains must not match the preview regex.
         spoofed_res = client.options(
