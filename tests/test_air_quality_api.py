@@ -29,8 +29,26 @@ def test_air_quality_route_rejects_unknown_query_parameters(client: TestClient) 
         params={"time_zone": "Asia/Kolkata"},
     )
     assert response.status_code == 422
+    assert response.json()["error_code"] == "validation_error"
     assert "Unknown query parameter" in response.json()["detail"]
 
+
+
+def test_http_exception_preserves_detail_and_adds_not_found_code(client: TestClient) -> None:
+    response = client.get(
+        "/api/v1/air-quality",
+        params={"location_id": "not-a-real-location"},
+    )
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "not_found"
+    assert "Unknown preset location_id" in response.json()["detail"]
+
+
+def test_request_validation_returns_structured_error_code(client: TestClient) -> None:
+    response = client.get("/api/v1/air-quality", params={"latitude": "999", "longitude": "0"})
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "validation_error"
+    assert isinstance(response.json()["detail"], list)
 
 def test_air_quality_route_accepts_known_query_parameters_and_keeps_default_location(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
