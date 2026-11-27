@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bot,
   KeyRound,
@@ -44,6 +44,23 @@ export default function AiAssistantPage({
   const [error, setError] = useState(null);
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const activeRequestIdRef = useRef(0);
+  const locationKey = [
+    selectedLocation?.id || "",
+    selectedLocation?.latitude ?? "",
+    selectedLocation?.longitude ?? "",
+    selectedLocation?.name || "",
+  ].join("|");
+  const previousLocationKeyRef = useRef(locationKey);
+
+  useEffect(() => {
+    if (previousLocationKeyRef.current === locationKey) return;
+
+    previousLocationKeyRef.current = locationKey;
+    activeRequestIdRef.current += 1;
+    setMessages([]);
+    setError(null);
+    setLoading(false);
+  }, [locationKey]);
 
   const geminiConfigured = Boolean(assistantStatus?.gemini_configured ?? assistantStatus?.configured);
 
