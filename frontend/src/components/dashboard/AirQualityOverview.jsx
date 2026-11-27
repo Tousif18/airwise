@@ -412,7 +412,7 @@ export default function AirQualityOverview({
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={chartData}
-                  margin={{ top: 8, right: 10, left: -16, bottom: 0 }}
+                  margin={{ top: 8, right: 28, left: 8, bottom: 0 }}
                 >
                   <defs>
                     <linearGradient id="pm25EstimatedGrad" x1="0" y1="0" x2="0" y2="1">
@@ -433,13 +433,35 @@ export default function AirQualityOverview({
                     interval="preserveStartEnd"
                   />
                   <YAxis
+                    yAxisId="pm25"
+                    orientation="left"
                     tick={{ fontSize: 11, fill: "#64748B" }}
                     tickLine={false}
                     axisLine={false}
+                    label={{
+                      value: "PM2.5 (μg/m³)",
+                      angle: -90,
+                      position: "insideLeft",
+                      style: { fill: "#0F766E", fontSize: 10 },
+                    }}
+                  />
+                  <YAxis
+                    yAxisId="usAqi"
+                    orientation="right"
+                    tick={{ fontSize: 11, fill: "#64748B" }}
+                    tickLine={false}
+                    axisLine={false}
+                    label={{
+                      value: "US AQI",
+                      angle: 90,
+                      position: "insideRight",
+                      style: { fill: "#D97706", fontSize: 10 },
+                    }}
                   />
                   <Tooltip content={<TrendTooltip />} />
                   <Area
                     type="monotone"
+                    yAxisId="pm25"
                     dataKey="pm25Estimated"
                     name="PM2.5 Estimated (μg/m³)"
                     stroke="#0F766E"
@@ -449,6 +471,7 @@ export default function AirQualityOverview({
                   />
                   <Area
                     type="monotone"
+                    yAxisId="pm25"
                     dataKey="pm25Forecast"
                     name="PM2.5 Forecast (μg/m³)"
                     stroke="#4F46E5"
@@ -459,6 +482,7 @@ export default function AirQualityOverview({
                   />
                   <Area
                     type="monotone"
+                    yAxisId="usAqi"
                     dataKey="usAqi"
                     name="US AQI"
                     stroke="#F59E0B"
