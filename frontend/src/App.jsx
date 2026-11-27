@@ -220,6 +220,7 @@ export default function App() {
           refreshCooldownSeconds={refreshCooldownSeconds}
           onRefresh={() => loadAirQuality(selectedLocation, { forceRefresh: true })}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          mobileMenuOpen={mobileMenuOpen}
           showRefresh={
             activePage === "dashboard" ||
             activePage === "assistant" ||
