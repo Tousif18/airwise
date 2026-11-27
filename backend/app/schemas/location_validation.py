@@ -1,6 +1,7 @@
 """Shared validators for user-supplied location metadata."""
 
-import math\nfrom zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+import math
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def validate_coordinate(value: float, axis: str) -> float:
