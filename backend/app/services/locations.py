@@ -264,20 +264,51 @@ class LocationSearchService:
                         )
                     break
 
-                raw_results = (payload or {}).get("results") or []
-                locations = [
-                    LocationOption(
-                        id=f"geo-{item.get('id', idx)}",
-                        name=item.get("name", "Unknown"),
-                        region=item.get("admin1") or "",
-                        country=item.get("country") or "",
-                        latitude=float(item["latitude"]),
-                        longitude=float(item["longitude"]),
-                        timezone=item.get("timezone") or "auto",
+                if not isinstance(payload, dict):
+                    logger.warning(
+                        "Open-Meteo geocoding returned an unexpected payload type (%s)",
+                        type(payload).__name__,
                     )
-                    for idx, item in enumerate(raw_results)
-                    if "latitude" in item and "longitude" in item
-                ]
+                    return LocationSearchResponse(
+                        locations=[],
+                        data_status=DataStatus.UNAVAILABLE,
+                        error_detail="Location search is temporarily unavailable. Please try again.",
+                    )
+
+                raw_results = payload.get("results")
+                if raw_results is None:
+                    raw_results = []
+                elif not isinstance(raw_results, list):
+                    logger.warning("Open-Meteo geocoding results field was not a list")
+                    return LocationSearchResponse(
+                        locations=[],
+                        data_status=DataStatus.UNAVAILABLE,
+                        error_detail="Location search is temporarily unavailable. Please try again.",
+                    )
+
+                locations: list[LocationOption] = []
+                for idx, item in enumerate(raw_results):
+                    if not isinstance(item, dict):
+                        logger.warning("Skipping malformed geocoding result at index %s", idx)
+                        continue
+                    try:
+                        if "latitude" not in item or "longitude" not in item:
+                            raise ValueError("Missing coordinates")
+                        locations.append(
+                            LocationOption(
+                                id=f"geo-{item.get('id', idx)}",
+                                name=item.get("name") if isinstance(item.get("name"), str) else "Unknown",
+                                region=item.get("admin1") if isinstance(item.get("admin1"), str) else "",
+                                country=item.get("country") if isinstance(item.get("country"), str) else "",
+                                latitude=float(item["latitude"]),
+                                longitude=float(item["longitude"]),
+                                timezone=item.get("timezone") if isinstance(item.get("timezone"), str) else "auto",
+                            )
+                        )
+                    except (TypeError, ValueError):
+                        logger.warning("Skipping geocoding result with invalid fields at index %s", idx)
+                        continue
+
                 result = LocationSearchResponse(
                     locations=locations,
                     data_status=DataStatus.LIVE,
