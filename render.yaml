@@ -39,3 +39,15 @@ services:
         value: "180"
       - key: HTTP_TIMEOUT_SECONDS
         value: "10.0"
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_TRUST_CF_CONNECTING_IP
+        value: "false"
+      - key: RATE_LIMIT_AI_PER_MINUTE
+        value: "10"
+      - key: RATE_LIMIT_SEARCH_PER_MINUTE
+        value: "30"
+      - key: RATE_LIMIT_AIR_QUALITY_PER_MINUTE
+        value: "30"
+      - key: RATE_LIMIT_FORCE_REFRESH_PER_MINUTE
+        value: "5"
