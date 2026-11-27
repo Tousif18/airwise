@@ -56,6 +56,44 @@ def test_air_quality_route_accepts_known_query_parameters_and_keeps_default_loca
     assert response.json()["location"]["timezone"] == "Asia/Kolkata"
 
 
+
+@pytest.mark.parametrize(
+    "path,params",
+    [
+        ("/api/v1/health", {"unexpected": "1"}),
+        ("/api/v1/locations/presets", {"unexpected": "1"}),
+        ("/api/v1/locations/search", {"q": "Kolkata", "unexpected": "1"}),
+        ("/api/v1/assistant/health", {"unexpected": "1"}),
+        ("/api/v1/assistant/status", {"unexpected": "1"}),
+    ],
+)
+def test_get_endpoints_reject_unknown_query_parameters(
+    client: TestClient, path: str, params: dict[str, str]
+) -> None:
+    response = client.get(path, params=params)
+    assert response.status_code == 422
+    assert "Unknown query parameter" in response.json()["detail"]
+
+
+def test_location_search_accepts_its_documented_query_parameter(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.schemas.air_quality import LocationSearchResponse
+
+    class FakeLocationService:
+        async def search(self, query: str) -> LocationSearchResponse:
+            assert query == "Kolkata"
+            return LocationSearchResponse(locations=[], data_status=DataStatus.LIVE)
+
+    monkeypatch.setattr(
+        "app.api.routes.locations.get_location_search_service",
+        lambda: FakeLocationService(),
+    )
+    response = client.get("/api/v1/locations/search", params={"q": "Kolkata"})
+    assert response.status_code == 200
+    assert response.json()["locations"] == []
+
+
 def test_health_endpoint(client: TestClient) -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
