@@ -37,7 +37,10 @@ class RequestSizeLimitMiddleware:
                     return
             except ValueError:
                 await self._send_json(
-                    send, 400, {"detail": "Invalid Content-Length header."}
+                    send, 400, {
+                        "detail": "Invalid Content-Length header.",
+                        "error_code": "invalid_content_length",
+                    }
                 )
                 return
 
