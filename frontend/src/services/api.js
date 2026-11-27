@@ -150,27 +150,35 @@ export async function searchLocations(query) {
   });
 }
 
+
 export async function fetchAirQuality(location, { forceRefresh = false } = {}) {
   const params = new URLSearchParams();
+
   if (location?.latitude != null && location?.longitude != null) {
+    // Custom coordinates take priority.
+    // Do not send location_id alongside coordinates.
     params.set("latitude", String(location.latitude));
     params.set("longitude", String(location.longitude));
-    if (location.id) params.set("location_id", location.id);
+
     if (location.name) params.set("name", location.name);
     if (location.region) params.set("region", location.region);
     if (location.country) params.set("country", location.country);
     if (location.timezone) params.set("timezone", location.timezone);
   } else if (location?.id) {
+    // Use preset location ID only when coordinates are absent.
     params.set("location_id", location.id);
   }
+
   if (forceRefresh) {
     params.set("force_refresh", "true");
   }
+
   return cachedGet(`/api/v1/air-quality?${params.toString()}`, {
     bypassCache: forceRefresh,
     cacheTtlMs: 60_000,
   });
 }
+
 
 export async function fetchFamilyProfile() {
   return loadLocalFamilyProfile() || { ...DEFAULT_FAMILY_PROFILE };
