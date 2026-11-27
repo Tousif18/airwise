@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Bot,
@@ -86,10 +86,19 @@ export default function IndoorAirGuidePage({
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const activeRequestIdRef = useRef(0);
+  const selectedLocationId = selectedLocation?.id ?? null;
 
   useEffect(() => {
     saveLocalHomeEnvironment(homeEnv);
   }, [homeEnv]);
+
+  useEffect(() => {
+    activeRequestIdRef.current += 1;
+    setResult(null);
+    setError(null);
+    setLoading(false);
+  }, [selectedLocationId]);
 
   const buildLocationPayload = () => {
     if (selectedLocation?.latitude != null && selectedLocation?.longitude != null) {
@@ -113,6 +122,7 @@ export default function IndoorAirGuidePage({
     if (event) event.preventDefault();
     if (loading) return;
 
+    const requestId = ++activeRequestIdRef.current;
     setError(null);
     setLoading(true);
     try {
@@ -120,13 +130,19 @@ export default function IndoorAirGuidePage({
         home_environment: homeEnv,
         ...buildLocationPayload(),
       });
-      setResult(data);
+      if (requestId === activeRequestIdRef.current) {
+        setResult(data);
+      }
     } catch (err) {
-      setError(
-        err.message || "Unable to generate indoor air-quality recommendations."
-      );
+      if (requestId === activeRequestIdRef.current) {
+        setError(
+          err.message || "Unable to generate indoor air-quality recommendations."
+        );
+      }
     } finally {
-      setLoading(false);
+      if (requestId === activeRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
