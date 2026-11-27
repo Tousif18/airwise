@@ -26,7 +26,7 @@ export default function PollutantGrid({ pollutants = [], loading = false }) {
         <EmptyState
           icon={Wind}
           title="No pollutant telemetry available"
-          description="Select a monitoring location or refresh to query Open-Meteo pollutant sensors."
+          description="Select a monitoring location or refresh to retrieve Open-Meteo's modeled pollutant estimates."
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
