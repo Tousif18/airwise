@@ -44,7 +44,10 @@ export default function App() {
 
     if (mobileMenuOpen) {
       mobileMenuCloseButtonRef.current?.focus();
-    } else {
+      return;
+    }
+
+    if (window.matchMedia("(max-width: 1023px)").matches) {
       mobileMenuButtonRef.current?.focus();
     }
   }, [mobileMenuOpen]);
