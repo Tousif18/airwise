@@ -69,6 +69,7 @@ export default function Sidebar({
         className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-mist-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        id="primary-navigation"
         aria-label="Primary Navigation"
       >
         {/* Brand header */}
@@ -161,13 +162,15 @@ export default function Sidebar({
   );
 }
 
-export function MobileMenuButton({ onClick }) {
+export function MobileMenuButton({ onClick, expanded }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex items-center justify-center rounded-xl border border-mist-200 bg-white p-2 text-slate-700 shadow-xs hover:bg-mist-50 lg:hidden"
       aria-label="Open navigation menu"
+      aria-controls="primary-navigation"
+      aria-expanded={expanded}
     >
       <Menu className="h-5 w-5" />
     </button>
