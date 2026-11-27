@@ -13,13 +13,47 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.core.config import Settings
 from app.main import app
-from app.schemas.air_quality import DataStatus, LocationOption, ValueKind
+from app.schemas.air_quality import AirQualityOverviewResponse, DataStatus, LocationOption, ValueKind
 from app.services.open_meteo import OpenMeteoAirQualityService
 
 
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
+
+
+
+def test_air_quality_route_rejects_unknown_query_parameters(client: TestClient) -> None:
+    response = client.get(
+        "/api/v1/air-quality",
+        params={"time_zone": "Asia/Kolkata"},
+    )
+    assert response.status_code == 422
+    assert "Unknown query parameter" in response.json()["detail"]
+
+
+def test_air_quality_route_accepts_known_query_parameters_and_keeps_default_location(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeService:
+        async def get_air_quality(self, location: LocationOption, force_refresh: bool = False):
+            return AirQualityOverviewResponse(
+                location=location,
+                data_status=DataStatus.UNAVAILABLE,
+                pollutants=[],
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.air_quality.get_air_quality_service",
+        lambda: FakeService(),
+    )
+    response = client.get(
+        "/api/v1/air-quality",
+        params={"timezone": "Asia/Kolkata", "force_refresh": "false"},
+    )
+    assert response.status_code == 200
+    assert response.json()["location"]["id"] == "kolkata-in"
+    assert response.json()["location"]["timezone"] == "Asia/Kolkata"
 
 
 def test_health_endpoint(client: TestClient) -> None:
