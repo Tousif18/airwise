@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useEffect, useState } from "react";
 import {
   Bot,
   Home,
@@ -50,7 +49,9 @@ export default function Sidebar({
   backendHealth,
   closeButtonRef,
 }) {
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    window.matchMedia("(min-width: 1024px)").matches
+  );
 
   useEffect(() => {
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
