@@ -260,6 +260,53 @@ async def test_geocoding_failures_return_safe_error_detail(failure, caplog) -> N
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [{"id": 1, "latitude": 19.0, "longitude": 72.0}],
+        {"results": {"id": 1, "latitude": 19.0, "longitude": 72.0}},
+    ],
+)
+async def test_geocoding_rejects_unexpected_payload_shapes(payload) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    service = LocationSearchService(Settings())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await service.search("MalformedPayloadCity", client=client)
+
+    assert result.data_status == DataStatus.UNAVAILABLE
+    assert result.locations == []
+    assert result.error_detail == (
+        "Location search is temporarily unavailable. Please try again."
+    )
+
+
+@pytest.mark.asyncio
+async def test_geocoding_skips_malformed_results_and_keeps_valid_locations() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    None,
+                    {"id": 2, "latitude": "not-a-number", "longitude": 72.0},
+                    {"id": 3, "latitude": 19.076, "longitude": 72.8777, "name": "Mumbai"},
+                ]
+            },
+        )
+
+    service = LocationSearchService(Settings())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await service.search("MixedResultsCity", client=client)
+
+    assert result.data_status == DataStatus.LIVE
+    assert len(result.locations) == 1
+    assert result.locations[0].name == "Mumbai"
+    assert result.locations[0].latitude == 19.076
+
+
+@pytest.mark.asyncio
 async def test_geocoding_caching_coalescing_and_429_protection() -> None:
     calls = 0
 
