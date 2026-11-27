@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { setMobileNavigationOpen } from "../../utils/mobileNavigation";
 import {
   Bot,
   Home,
@@ -77,7 +78,7 @@ export default function Sidebar({
         <button
           type="button"
           className="fixed inset-0 z-30 appearance-none border-0 bg-slate-900/40 p-0 backdrop-blur-xs lg:hidden"
-          onClick={() => onToggleMobile(false)}
+          onClick={() => setMobileNavigationOpen(onToggleMobile, false)}
           aria-label="Close navigation menu"
           tabIndex={-1}
         />
@@ -110,7 +111,7 @@ export default function Sidebar({
           </div>
           <button
             type="button"
-            onClick={() => onToggleMobile(false)}
+            onClick={() => setMobileNavigationOpen(onToggleMobile, false)}
             className="rounded-lg p-1.5 text-slate-500 hover:bg-mist-100 lg:hidden"
             aria-label="Close navigation menu"
             ref={closeButtonRef}
