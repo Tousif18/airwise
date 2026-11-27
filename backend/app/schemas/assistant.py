@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.air_quality import DataStatus, ValueKind
 from app.schemas.family import FamilyProfile
+from app.schemas.location_validation import validate_timezone
 
 
 class PriorityLevel(str, Enum):
@@ -151,6 +152,11 @@ class AssistantLocationMixin(BaseModel):
     timezone: str = Field(default="auto", max_length=64)
     family_profile: FamilyProfile | None = None
     force_refresh: bool = False
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone_name(cls, value: str) -> str:
+        return validate_timezone(value)
 
     @model_validator(mode="after")
     def validate_coordinate_pair(self) -> "AssistantLocationMixin":
