@@ -228,7 +228,13 @@ class IndoorAirAdvisorService:
         )
 
         # 2. Safe ventilation based on outdoor AQI
-        if home.windows_ventilation == WindowVentilationType.CROSS_VENTILATION:
+        if not assessment.air_quality_available:
+            win_detail = (
+                "Outdoor conditions cannot be verified right now. Avoid routine or prolonged window opening; "
+                "if ventilation is necessary, use only a brief cautious airing when there are no visible signs "
+                "of smoke or nearby pollution, then close the windows."
+            )
+        elif home.windows_ventilation == WindowVentilationType.CROSS_VENTILATION:
             win_detail = (
                 "Use short opposite-window cross-ventilation only during midday cleaner hours."
                 if (high_outdoor_risk or caution_risk)
@@ -256,7 +262,11 @@ class IndoorAirAdvisorService:
                     if (high_outdoor_risk or caution_risk or not assessment.air_quality_available)
                     else "Avoid opening windows facing heavy road traffic during rush hour."
                 ),
-                "Open windows briefly only when outdoor haze dips or during midday sunlight hours.",
+                (
+                    "Outdoor conditions are unavailable: avoid routine or prolonged window opening. If ventilation is necessary, air the room briefly only when there are no visible signs of smoke or nearby pollution, then close windows."
+                    if not assessment.air_quality_available
+                    else "Open windows briefly only when outdoor haze dips or during midday sunlight hours."
+                ),
             ],
             priority=PriorityLevel.HIGH if high_outdoor_risk else PriorityLevel.MEDIUM,
             reason=(
