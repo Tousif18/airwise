@@ -1,6 +1,8 @@
 """AirWise AI Assistant endpoints for chat, structured recommendations, and health."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from app.api.query_validation import reject_unknown_query_parameters
 
 from app.core.dependencies import get_air_quality_service, get_gemini_service
 from app.schemas.family import FamilyProfile
@@ -19,17 +21,21 @@ router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 @router.get("/health", response_model=AssistantHealthResponse)
 async def assistant_health(
+    request: Request,
     gemini_service: GeminiAssistantService = Depends(get_gemini_service),
 ) -> AssistantHealthResponse:
     """Return AI Assistant readiness and fallback capability without exposing secrets."""
+    reject_unknown_query_parameters(request)
     return gemini_service.get_health()
 
 
 @router.get("/status", include_in_schema=False)
 async def assistant_status(
+    request: Request,
     gemini_service: GeminiAssistantService = Depends(get_gemini_service),
 ) -> dict[str, str | bool]:
     """Backward-compatible status endpoint for AI Assistant readiness."""
+    reject_unknown_query_parameters(request)
     return gemini_service.get_status()
 
 
