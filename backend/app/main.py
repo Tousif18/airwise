@@ -7,6 +7,7 @@ import uvicorn
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_size_limit import RequestSizeLimitMiddleware
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -27,6 +28,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Accept", "Content-Type"],
     )
+
+    app.add_middleware(RequestSizeLimitMiddleware)
 
     if settings.rate_limit_enabled:
         app.add_middleware(RateLimitMiddleware, settings=settings)
