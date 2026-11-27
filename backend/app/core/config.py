@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     geocoding_cache_ttl_seconds: int = 3600
     http_timeout_seconds: float = 10.0
 
+    rate_limit_enabled: bool = Field(default=True, alias="RATE_LIMIT_ENABLED")
+    rate_limit_trust_cf_connecting_ip: bool = Field(
+        default=False, alias="RATE_LIMIT_TRUST_CF_CONNECTING_IP"
+    )
+    rate_limit_ai_per_minute: int = Field(default=10, ge=1, alias="RATE_LIMIT_AI_PER_MINUTE")
+    rate_limit_search_per_minute: int = Field(default=30, ge=1, alias="RATE_LIMIT_SEARCH_PER_MINUTE")
+    rate_limit_air_quality_per_minute: int = Field(default=30, ge=1, alias="RATE_LIMIT_AIR_QUALITY_PER_MINUTE")
+    rate_limit_force_refresh_per_minute: int = Field(default=5, ge=1, alias="RATE_LIMIT_FORCE_REFRESH_PER_MINUTE")
+
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.8-flash"
     gemini_fallback_models_raw: str = Field(
