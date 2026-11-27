@@ -121,7 +121,15 @@ export default function LocationSelector({
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                activeSearchIdRef.current += 1;
+                lastSearchedRef.current = "";
+                setQuery(e.target.value);
+                setSearchResults([]);
+                setSearchError(null);
+                setHasSearched(false);
+                setSearching(false);
+              }}
               placeholder="Search city (e.g., Chandigarh, London)..."
               aria-label="Search city location"
               className="w-full rounded-xl border border-mist-200 bg-mist-50/70 py-2 pl-9 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus:border-pine-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pine-600/20"
