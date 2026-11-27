@@ -44,23 +44,10 @@ def test_preset_locations_default_is_kolkata(client: TestClient) -> None:
     assert "New Delhi" in names
 
 
-def test_family_profile_roundtrip(client: TestClient) -> None:
-    get_res = client.get("/api/v1/family-profile")
-    assert get_res.status_code == 200
-    original = get_res.json()
-
-    updated_payload = {
-        **original,
-        "household_name": "Sharma Family",
-        "member_count": 5,
-        "has_respiratory_condition": True,
-        "sensitivity_level": "high",
-    }
-    put_res = client.put("/api/v1/family-profile", json=updated_payload)
-    assert put_res.status_code == 200
-    saved = put_res.json()
-    assert saved["household_name"] == "Sharma Family"
-    assert saved["sensitivity_level"] == "high"
+def test_family_profile_is_not_shared_through_legacy_api(client: TestClient) -> None:
+    path = "/api/v1/family-profile"
+    assert client.get(path).status_code == 404
+    assert client.put(path, json={"city": "Kolkata"}).status_code == 404
 
 
 @pytest.mark.asyncio
