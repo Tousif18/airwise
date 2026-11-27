@@ -1,6 +1,8 @@
 """Health and capability endpoints."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+
+from app.api.query_validation import reject_unknown_query_parameters
 
 from app.core.config import get_settings
 from app.schemas.system import HealthResponse
@@ -9,8 +11,9 @@ router = APIRouter(tags=["system"])
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
+async def health_check(request: Request) -> HealthResponse:
     """Return service health and public integration capabilities."""
+    reject_unknown_query_parameters(request)
     settings = get_settings()
     return HealthResponse(
         status="ok",
