@@ -333,7 +333,12 @@ export default function AiAssistantPage({
         )}
 
         {loading && (
-          <div className="mt-5 flex items-center gap-3 rounded-xl border border-mist-200 bg-mist-50 px-4 py-3 text-xs font-medium text-slate-700">
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="mt-5 flex items-center gap-3 rounded-xl border border-mist-200 bg-mist-50 px-4 py-3 text-xs font-medium text-slate-700"
+          >
             <Loader2 className="h-4 w-4 animate-spin text-pine-700" />
             <span>
               Evaluating {selectedLocation?.name || "local"} telemetry, safety rules, and
