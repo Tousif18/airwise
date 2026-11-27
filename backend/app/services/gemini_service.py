@@ -302,7 +302,7 @@ class GeminiAssistantService:
         if isinstance(exc, asyncio.TimeoutError):
             return "The AI assistant timed out; deterministic rule-based guidance was provided."
         if isinstance(exc, UnsafeAIResponseError):
-            return "The AI response did not pass safety checks; deterministic rule-based guidance was provided."
+            return "The AI response did not pass safety guardrail checks; deterministic rule-based guidance was provided."
         if isinstance(exc, (ValidationError, json.JSONDecodeError, ValueError)):
             return "The AI assistant returned an invalid response; deterministic rule-based guidance was provided."
         return "The AI assistant is temporarily unavailable; deterministic rule-based guidance was provided."
