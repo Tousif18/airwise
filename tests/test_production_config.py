@@ -116,3 +116,63 @@ def test_cors_accepts_vercel_origins_and_preview_regex(monkeypatch) -> None:
         assert blocked_res.headers.get("access-control-allow-origin") is None
     finally:
         get_settings.cache_clear()
+
+
+
+def test_liveness_and_readiness_endpoints(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.routes.health.get_settings",
+        lambda: Settings(
+            open_meteo_air_quality_url="https://air-quality.example/api",
+            open_meteo_geocoding_url="https://geocoding.example/search",
+        ),
+    )
+    client = TestClient(create_app())
+
+    live = client.get("/api/v1/health/live")
+    assert live.status_code == 200
+    assert live.json() == {"status": "ok"}
+
+    ready = client.get("/api/v1/health/ready")
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "ready"
+    assert ready.json()["checks"] == {
+        "open_meteo_air_quality_url": True,
+        "open_meteo_geocoding_url": True,
+    }
+
+
+def test_readiness_fails_for_invalid_required_configuration(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.routes.health.get_settings",
+        lambda: Settings(
+            open_meteo_air_quality_url="not-a-url",
+            open_meteo_geocoding_url="https://geocoding.example/search",
+        ),
+    )
+    client = TestClient(create_app())
+
+    response = client.get("/api/v1/health/ready")
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+    assert response.json()["checks"] == {
+        "open_meteo_air_quality_url": False,
+        "open_meteo_geocoding_url": True,
+    }
+
+
+def test_readiness_does_not_require_gemini_or_live_upstream_access(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.routes.health.get_settings",
+        lambda: Settings(gemini_api_key=None),
+    )
+    client = TestClient(create_app())
+
+    response = client.get("/api/v1/health/ready")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+
+
+def test_render_uses_readiness_endpoint_for_deployment_health_checks() -> None:
+    render_config = (Path(__file__).resolve().parents[1] / "render.yaml").read_text()
+    assert "healthCheckPath: /api/v1/health/ready" in render_config
