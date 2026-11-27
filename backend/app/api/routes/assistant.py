@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.routes.family import get_stored_family_profile
 from app.core.dependencies import get_air_quality_service, get_gemini_service
+from app.schemas.family import FamilyProfile
 from app.schemas.assistant import (
     AssistantChatRequest,
     AssistantHealthResponse,
@@ -62,7 +62,7 @@ async def assistant_chat(
         location=location,
         force_refresh=payload.force_refresh,
     )
-    profile = payload.family_profile or get_stored_family_profile()
+    profile = payload.family_profile or FamilyProfile()
 
     return await gemini_service.generate_guidance(
         air_quality=air_quality,
@@ -101,7 +101,7 @@ async def assistant_recommendations(
         location=location,
         force_refresh=payload.force_refresh,
     )
-    profile = payload.family_profile or get_stored_family_profile()
+    profile = payload.family_profile or FamilyProfile()
 
     return await gemini_service.generate_guidance(
         air_quality=air_quality,
