@@ -46,6 +46,7 @@ export default function Sidebar({
   mobileOpen,
   onToggleMobile,
   backendHealth,
+  closeButtonRef,
 }) {
   const handleSelect = (id) => {
     onSelectPage(id);
@@ -92,6 +93,7 @@ export default function Sidebar({
             onClick={() => onToggleMobile(false)}
             className="rounded-lg p-1.5 text-slate-500 hover:bg-mist-100 lg:hidden"
             aria-label="Close navigation menu"
+            ref={closeButtonRef}
           >
             <X className="h-5 w-5" />
           </button>
@@ -162,7 +164,7 @@ export default function Sidebar({
   );
 }
 
-export function MobileMenuButton({ onClick, expanded }) {
+export function MobileMenuButton({ onClick, expanded, buttonRef }) {
   return (
     <button
       type="button"
@@ -171,6 +173,7 @@ export function MobileMenuButton({ onClick, expanded }) {
       aria-label="Open navigation menu"
       aria-controls="primary-navigation"
       aria-expanded={expanded}
+      ref={buttonRef}
     >
       <Menu className="h-5 w-5" />
     </button>
