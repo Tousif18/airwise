@@ -6,11 +6,16 @@ from app.api.query_validation import reject_unknown_query_parameters
 
 from app.core.config import get_settings
 from app.schemas.system import HealthResponse
+from app.schemas.errors import ErrorResponse
 
 router = APIRouter(tags=["system"])
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    responses={422: {"model": ErrorResponse, "description": "Invalid query parameters."}},
+)
 async def health_check(request: Request) -> HealthResponse:
     """Return service health and public integration capabilities."""
     reject_unknown_query_parameters(request)
