@@ -7,6 +7,23 @@ const API_BASE_URL =
   );
 
 const FAMILY_PROFILE_STORAGE_KEY = "airwise_family_profile_v1";
+const DEFAULT_FAMILY_PROFILE = {
+  city: "Kolkata",
+  location_id: "kolkata-in",
+  location_label: "Kolkata, West Bengal, India",
+  household_size: 4,
+  children_count: 1,
+  elderly_count: 0,
+  has_respiratory_condition: false,
+  respiratory_vulnerability: "",
+  sensitivity_level: "moderate",
+  commute_method: "public_transit",
+  daily_outdoor_commute: true,
+  outdoor_activity_schedule: "Morning school commute (7:30-8:30 AM) and late afternoon outdoor time",
+  ventilation_preference: "low_smog_windows",
+  has_air_purifier: true,
+  notes: "",
+};
 const HOME_ENVIRONMENT_STORAGE_KEY = "airwise_indoor_environment_v1";
 
 const getRequestManager = new InFlightRequestManager({
@@ -149,16 +166,12 @@ export async function fetchAirQuality(location, { forceRefresh = false } = {}) {
 }
 
 export async function fetchFamilyProfile() {
-  return cachedGet("/api/v1/family/profile", { cacheTtlMs: 10_000 });
+  return loadLocalFamilyProfile() || { ...DEFAULT_FAMILY_PROFILE };
 }
 
 export async function saveFamilyProfile(profile) {
-  const saved = await requestJson("/api/v1/family/profile", {
-    method: "PUT",
-    body: JSON.stringify(profile),
-  });
-  saveLocalFamilyProfile(saved);
-  return saved;
+  saveLocalFamilyProfile(profile);
+  return profile;
 }
 
 export async function postAssistantChat(payload) {
