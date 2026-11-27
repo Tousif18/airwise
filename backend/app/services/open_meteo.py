@@ -141,12 +141,16 @@ def classify_us_aqi(us_aqi: float | None) -> str:
 
 
 def _to_float_or_none(value: Any) -> float | None:
-    if value is None:
+    """Convert a provider reading to a finite, non-negative number."""
+    if value is None or isinstance(value, bool):
         return None
     try:
-        return round(float(value), 2)
-    except (TypeError, ValueError):
+        parsed = float(value)
+    except (TypeError, ValueError, OverflowError):
         return None
+    if not math.isfinite(parsed) or parsed < 0:
+        return None
+    return round(parsed, 2)
 
 
 def _build_unavailable_response(
