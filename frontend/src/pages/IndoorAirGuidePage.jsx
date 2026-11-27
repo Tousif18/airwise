@@ -419,10 +419,14 @@ export default function IndoorAirGuidePage({
                 )}
               </div>
 
-              <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-                <Clock className="h-3 w-3" />
-                Outdoor Data: {result.data_timestamp}
-              </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500" title="Timestamp of the outdoor data used to generate this guide, not the guide generation time.">
+                <Clock className="h-3 w-3 shrink-0" />
+                <span>
+                  <span className="font-semibold text-slate-600">Outdoor Data Timestamp:</span>{" "}
+                  {result.data_timestamp}
+                  <span className="ml-1 text-slate-400">(data used for this guide)</span>
+                </span>
+              </div>
             </div>
 
             {result.fallback_reason && (
