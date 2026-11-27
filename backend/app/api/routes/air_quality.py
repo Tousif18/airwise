@@ -21,6 +21,17 @@ async def get_air_quality_overview(
     force_refresh: bool = Query(default=False, description="Bypass TTL cache for live fetch"),
 ) -> AirQualityOverviewResponse:
     """Return live, cached, or explicitly unavailable air quality data."""
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(
+            status_code=422,
+            detail="Both latitude and longitude must be provided together.",
+        )
+    if location_id and latitude is not None and longitude is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="Choose either location_id or custom coordinates, not both.",
+        )
+
     location = resolve_location_selection(
         location_id=location_id,
         latitude=latitude,
