@@ -334,7 +334,11 @@ async def test_gemini_exception_falls_back_gracefully() -> None:
 
     assert result.response_source == ResponseSourceMode.RULE_BASED_FALLBACK
     assert result.is_ai_generated is False
-    assert "RuntimeError" in (result.fallback_reason or "")
+    assert result.fallback_reason == (
+        "The AI assistant is temporarily unavailable; deterministic rule-based guidance was provided."
+    )
+    assert "Simulated Gemini outage" not in (result.fallback_reason or "")
+    assert "RuntimeError" not in (result.fallback_reason or "")
 
 
 @pytest.mark.asyncio
