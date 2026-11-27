@@ -10,6 +10,7 @@ export default function LocationSelector({
   onSearchLocations,
   presetsLoading = false,
   presetsError = null,
+  onRetryPresets,
 }) {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -162,7 +163,18 @@ export default function LocationSelector({
             ))}
           </div>
         ) : presetsError ? (
-          <p className="text-xs text-rose-700">{presetsError}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-rose-700">{presetsError}</p>
+            {onRetryPresets && (
+              <button
+                type="button"
+                onClick={onRetryPresets}
+                className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-800 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+              >
+                Retry locations
+              </button>
+            )}
+          </div>
         ) : presets.length === 0 ? (
           <p className="text-xs text-slate-500">
             No preset locations available. Use search to pick coordinates.
