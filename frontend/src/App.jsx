@@ -53,6 +53,18 @@ export default function App() {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const handleViewportChange = (event) => {
+      if (event.matches) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    desktopQuery.addEventListener("change", handleViewportChange);
+    return () => desktopQuery.removeEventListener("change", handleViewportChange);
+  }, []);
+
+  useEffect(() => {
     if (!mobileMenuOpen) return undefined;
 
     const handleKeyDown = (event) => {
