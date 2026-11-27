@@ -6,6 +6,7 @@ from app.api.query_validation import reject_unknown_query_parameters
 
 from app.core.dependencies import get_air_quality_service, get_gemini_service
 from app.schemas.family import FamilyProfile
+from app.schemas.errors import ErrorResponse, RateLimitErrorResponse
 from app.schemas.assistant import (
     AssistantChatRequest,
     AssistantHealthResponse,
@@ -19,7 +20,11 @@ from app.services.open_meteo import OpenMeteoAirQualityService
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 
-@router.get("/health", response_model=AssistantHealthResponse)
+@router.get(
+    "/health",
+    response_model=AssistantHealthResponse,
+    responses={422: {"model": ErrorResponse, "description": "Invalid query parameters."}},
+)
 async def assistant_health(
     request: Request,
     gemini_service: GeminiAssistantService = Depends(get_gemini_service),
@@ -39,7 +44,17 @@ async def assistant_status(
     return gemini_service.get_status()
 
 
-@router.post("/chat", response_model=AssistantStructuredResponse)
+@router.post(
+    "/chat",
+    response_model=AssistantStructuredResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid Content-Length header."},
+        404: {"model": ErrorResponse, "description": "Unknown preset location."},
+        413: {"model": ErrorResponse, "description": "Request body exceeds 64 KB."},
+        422: {"model": ErrorResponse, "description": "Request validation failed."},
+        429: {"model": RateLimitErrorResponse, "description": "AI request rate limit exceeded."},
+    },
+)
 async def assistant_chat(
     payload: AssistantChatRequest,
     air_quality_service: OpenMeteoAirQualityService = Depends(get_air_quality_service),
@@ -78,7 +93,17 @@ async def assistant_chat(
     )
 
 
-@router.post("/recommendations", response_model=AssistantStructuredResponse)
+@router.post(
+    "/recommendations",
+    response_model=AssistantStructuredResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid Content-Length header."},
+        404: {"model": ErrorResponse, "description": "Unknown preset location."},
+        413: {"model": ErrorResponse, "description": "Request body exceeds 64 KB."},
+        422: {"model": ErrorResponse, "description": "Request validation failed."},
+        429: {"model": RateLimitErrorResponse, "description": "AI request rate limit exceeded."},
+    },
+)
 async def assistant_recommendations(
     payload: AssistantRecommendationsRequest,
     air_quality_service: OpenMeteoAirQualityService = Depends(get_air_quality_service),
