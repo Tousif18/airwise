@@ -112,6 +112,7 @@ export default function Sidebar({
                 key={item.id}
                 type="button"
                 onClick={() => handleSelect(item.id)}
+                aria-current={isActive ? "page" : undefined}
                 className={`group flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
                   isActive
                     ? "bg-pine-50 text-pine-900 ring-1 ring-pine-600/20"
