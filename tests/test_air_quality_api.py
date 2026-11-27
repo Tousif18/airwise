@@ -76,8 +76,9 @@ def test_get_endpoints_reject_unknown_query_parameters(
 
 
 def test_location_search_accepts_its_documented_query_parameter(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient
 ) -> None:
+    from app.core.dependencies import get_location_search_service
     from app.schemas.air_quality import LocationSearchResponse
 
     class FakeLocationService:
@@ -85,14 +86,14 @@ def test_location_search_accepts_its_documented_query_parameter(
             assert query == "Kolkata"
             return LocationSearchResponse(locations=[], data_status=DataStatus.LIVE)
 
-    monkeypatch.setattr(
-        "app.api.routes.locations.get_location_search_service",
-        lambda: FakeLocationService(),
-    )
-    response = client.get("/api/v1/locations/search", params={"q": "Kolkata"})
+    app.dependency_overrides[get_location_search_service] = lambda: FakeLocationService()
+    try:
+        response = client.get("/api/v1/locations/search", params={"q": "Kolkata"})
+    finally:
+        app.dependency_overrides.pop(get_location_search_service, None)
+
     assert response.status_code == 200
     assert response.json()["locations"] == []
-
 
 def test_health_endpoint(client: TestClient) -> None:
     response = client.get("/api/v1/health")
