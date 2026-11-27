@@ -94,6 +94,7 @@ export default function EnvironmentalImpactPage({ onBackToDashboard }) {
   );
   const [assumptionsErrors, setAssumptionsErrors] = useState({});
   const [historyScope, setHistoryScope] = useState("weekly"); // "weekly" | "all"
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   useEffect(() => {
     saveImpactRecords(records);
@@ -137,6 +138,7 @@ export default function EnvironmentalImpactPage({ onBackToDashboard }) {
 
   const handleClearAll = () => {
     setRecords([]);
+    setConfirmClearAll(false);
   };
 
   const handleSaveAssumptions = (event) => {
@@ -636,14 +638,36 @@ export default function EnvironmentalImpactPage({ onBackToDashboard }) {
             </div>
 
             {records.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearAll}
-                className="inline-flex items-center gap-1 rounded-xl border border-mist-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-mist-50"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Clear All
-              </button>
+              confirmClearAll ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5">
+                  <span className="text-xs font-medium text-rose-800">
+                    Delete all {records.length} activity records?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    className="rounded-lg bg-rose-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-800"
+                  >
+                    Confirm delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearAll(false)}
+                    className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-rose-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearAll(true)}
+                  className="inline-flex items-center gap-1 rounded-xl border border-mist-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-mist-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear All
+                </button>
+              )
             )}
           </div>
         </div>
