@@ -45,6 +45,9 @@ async function requestJson(path, options = {}, timeoutMs = 0) {
       ? await fetchWithTimeout(`${API_BASE_URL}${path}`, fetchOptions, timeoutMs)
       : await fetch(`${API_BASE_URL}${path}`, fetchOptions);
   } catch (networkErr) {
+    if (networkErr?.isTimeoutError) {
+      throw networkErr;
+    }
     const err = new Error(
       "Unable to reach the AirWise backend server. Please try again shortly."
     );
