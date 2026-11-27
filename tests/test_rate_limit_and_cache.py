@@ -356,3 +356,45 @@ async def test_geocoding_caching_coalescing_and_429_protection() -> None:
         assert limited.data_status == DataStatus.UNAVAILABLE
         assert limited.rate_limited is True
         assert limited.retry_after_seconds == 25
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failure", "expected_code", "safe_detail", "sensitive_text"),
+    [
+        (
+            httpx.ConnectError("private socket and host diagnostic"),
+            "upstream_unreachable",
+            "Air-quality data is temporarily unavailable. Please try again.",
+            "private socket and host diagnostic",
+        ),
+        (
+            httpx.Response(200, text="not-json private provider payload"),
+            "invalid_upstream_payload",
+            "Air-quality data is temporarily unavailable due to an invalid provider response.",
+            "not-json private provider payload",
+        ),
+    ],
+)
+async def test_air_quality_upstream_failures_return_safe_error_detail(
+    failure, expected_code, safe_detail, sensitive_text
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if isinstance(failure, Exception):
+            raise failure
+        return failure
+
+    service = OpenMeteoAirQualityService(
+        Settings(
+            air_quality_max_retries=0,
+            air_quality_retry_base_delay_seconds=0.0,
+        )
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await service.get_air_quality(_kolkata(), client=client)
+
+    assert result.data_status == DataStatus.UNAVAILABLE
+    assert result.error_code == expected_code
+    assert result.error_detail == safe_detail
+    assert result.api_warning == safe_detail
+    assert sensitive_text not in str(result.model_dump())
+
