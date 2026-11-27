@@ -181,23 +181,15 @@ export default function App() {
   const handleSaveFamilyProfile = async (updatedProfile) => {
     setFamilyError(null);
     saveLocalFamilyProfile(updatedProfile);
-    try {
-      const saved = await saveFamilyProfile(updatedProfile);
-      setFamilyProfile(saved);
-      if (saved.location_id) {
-        const matched = presets.find((loc) => loc.id === saved.location_id);
-        if (matched && getLocationKey(matched) !== selectedLocationKey) {
-          setSelectedLocation(matched);
-        }
+    const saved = await saveFamilyProfile(updatedProfile);
+    setFamilyProfile(saved);
+    if (saved.location_id) {
+      const matched = presets.find((loc) => loc.id === saved.location_id);
+      if (matched && getLocationKey(matched) !== selectedLocationKey) {
+        setSelectedLocation(matched);
       }
-      return saved;
-    } catch (err) {
-      setFamilyProfile(updatedProfile);
-      setFamilyError(
-        `Saved locally in browser, but backend sync failed: ${err.message}`
-      );
-      throw err;
     }
+    return saved;
   };
 
   const currentNav = NAV_ITEMS.find((item) => item.id === activePage) || NAV_ITEMS[0];
