@@ -70,6 +70,35 @@ export default function App() {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         setMobileMenuOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const sidebar = document.getElementById("primary-navigation");
+      if (!sidebar) return;
+
+      const focusableElements = sidebar.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const visibleElements = Array.from(focusableElements).filter(
+        (element) => element.getClientRects().length > 0
+      );
+
+      if (visibleElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const firstElement = visibleElements[0];
+      const lastElement = visibleElements[visibleElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
       }
     };
 
