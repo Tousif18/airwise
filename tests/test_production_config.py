@@ -17,7 +17,7 @@ def test_settings_loads_from_os_environ_without_env_file(monkeypatch) -> None:
     monkeypatch.setenv("PORT", "10000")
     monkeypatch.setenv("CORS_ORIGINS", "https://airwise.vercel.app/, http://localhost:5173")
     monkeypatch.setenv("FRONTEND_URL", "https://airwise-custom.vercel.app/")
-    monkeypatch.setenv("CORS_ORIGIN_REGEX", r"https://airwise-.*\.vercel\.app")
+    monkeypatch.setenv("CORS_ORIGIN_REGEX", r"^https://airwise-[a-z0-9-]+\.vercel\.app$")
     monkeypatch.setenv("GEMINI_API_KEY", "")
 
     settings = Settings(_env_file="/nonexistent/path/.env")
