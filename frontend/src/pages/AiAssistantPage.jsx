@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Bot,
   KeyRound,
@@ -43,6 +43,7 @@ export default function AiAssistantPage({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showProfilePanel, setShowProfilePanel] = useState(false);
+  const activeRequestIdRef = useRef(0);
 
   const geminiConfigured = Boolean(assistantStatus?.gemini_configured ?? assistantStatus?.configured);
 
@@ -74,6 +75,7 @@ export default function AiAssistantPage({
     const trimmed = rawText.trim();
     if (!trimmed || loading) return;
 
+    const requestId = ++activeRequestIdRef.current;
     setError(null);
     const userEntry = {
       id: `user-${Date.now()}`,
@@ -92,25 +94,32 @@ export default function AiAssistantPage({
         family_profile: familyProfile || undefined,
         conversation_history: buildHistory(messages),
       });
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          data: response,
-        },
-      ]);
+      if (requestId === activeRequestIdRef.current) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            data: response,
+          },
+        ]);
+      }
     } catch (err) {
-      setError(
-        err.message || "Unable to reach the AirWise AI Assistant backend."
-      );
+      if (requestId === activeRequestIdRef.current) {
+        setError(
+          err.message || "Unable to reach the AirWise AI Assistant backend."
+        );
+      }
     } finally {
-      setLoading(false);
+      if (requestId === activeRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const handleDailyRecommendations = async () => {
     if (loading) return;
+    const requestId = ++activeRequestIdRef.current;
     setError(null);
     const label = `Generate today's structured family air-quality plan for ${
       selectedLocation?.name || familyProfile?.city || "my location"
@@ -127,26 +136,34 @@ export default function AiAssistantPage({
         ...buildLocationPayload(),
         family_profile: familyProfile || undefined,
       });
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          data: response,
-        },
-      ]);
+      if (requestId === activeRequestIdRef.current) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            data: response,
+          },
+        ]);
+      }
     } catch (err) {
-      setError(
-        err.message || "Unable to generate structured recommendations."
-      );
+      if (requestId === activeRequestIdRef.current) {
+        setError(
+          err.message || "Unable to generate structured recommendations."
+        );
+      }
     } finally {
-      setLoading(false);
+      if (requestId === activeRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const handleClearChat = () => {
+    activeRequestIdRef.current += 1;
     setMessages([]);
     setError(null);
+    setLoading(false);
   };
 
   return (
