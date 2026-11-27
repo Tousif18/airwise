@@ -154,6 +154,30 @@ export default function App() {
     }
   }, []);
 
+  const handleRetryPresets = useCallback(async () => {
+    setPresetsLoading(true);
+    setPresetsError(null);
+
+    try {
+      const response = await fetchPresetLocations();
+      const list = response?.locations || [];
+      setPresets(list);
+
+      if (list.length > 0 && !selectedLocation) {
+        const preferred =
+          familyProfile?.location_id &&
+          list.find((loc) => loc.id === familyProfile.location_id);
+        setSelectedLocation(preferred || list[0]);
+      }
+    } catch (err) {
+      setPresetsError(
+        err.message || "Could not load preset monitoring locations."
+      );
+    } finally {
+      setPresetsLoading(false);
+    }
+  }, [familyProfile, selectedLocation]);
+
   // Initial bootstrap: health, assistant readiness, preset locations, and family profile
   useEffect(() => {
     let cancelled = false;
@@ -286,6 +310,7 @@ export default function App() {
               presets={presets}
               presetsLoading={presetsLoading}
               presetsError={presetsError}
+              onRetryPresets={handleRetryPresets}
               selectedLocation={selectedLocation}
               onSelectLocation={setSelectedLocation}
               onSearchLocations={searchLocations}
