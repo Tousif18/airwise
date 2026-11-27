@@ -14,7 +14,7 @@ if str(BACKEND_DIR) not in sys.path:
 from app.core.config import Settings
 from app.schemas.air_quality import DataStatus, LocationOption
 from app.services.locations import LocationSearchService
-from app.services.open_meteo import OpenMeteoAirQualityService, parse_retry_after_seconds
+from app.services.open_meteo import OpenMeteoAirQualityService, _to_float_or_none, parse_retry_after_seconds
 
 
 def _kolkata(tz: str = "Asia/Kolkata") -> LocationOption:
@@ -398,3 +398,31 @@ async def test_air_quality_upstream_failures_return_safe_error_detail(
     assert result.api_warning == safe_detail
     assert sensitive_text not in str(result.model_dump())
 
+
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.01,
+        True,
+        "not-a-number",
+    ],
+)
+def test_provider_numeric_parser_rejects_non_finite_negative_and_malformed_values(value) -> None:
+    assert _to_float_or_none(value) is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0, 0.0),
+        (12.345, 12.35),
+        ("45.6", 45.6),
+    ],
+)
+def test_provider_numeric_parser_preserves_valid_non_negative_values(value, expected) -> None:
+    assert _to_float_or_none(value) == expected
