@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { handleMobileNavigationKeyDown, restoreMobileNavigationFocus, setMobileNavigationOpen } from "./utils/mobileNavigation";
 import Sidebar, { NAV_ITEMS } from "./components/layout/Sidebar";
 import HeaderBar from "./components/layout/HeaderBar";
 import DashboardPage from "./pages/DashboardPage";
@@ -42,14 +43,12 @@ export default function App() {
       return;
     }
 
-    if (mobileMenuOpen) {
-      mobileMenuCloseButtonRef.current?.focus();
-      return;
-    }
-
-    if (window.matchMedia("(max-width: 1023px)").matches) {
-      mobileMenuButtonRef.current?.focus();
-    }
+    restoreMobileNavigationFocus({
+      isOpen: mobileMenuOpen,
+      isMobile: window.matchMedia("(max-width: 1023px)").matches,
+      closeButton: mobileMenuCloseButtonRef.current,
+      menuButton: mobileMenuButtonRef.current,
+    });
   }, [mobileMenuOpen]);
 
   useEffect(() => {
@@ -68,38 +67,11 @@ export default function App() {
     if (!mobileMenuOpen) return undefined;
 
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setMobileMenuOpen(false);
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-
-      const sidebar = document.getElementById("primary-navigation");
-      if (!sidebar) return;
-
-      const focusableElements = sidebar.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      handleMobileNavigationKeyDown(
+        event,
+        document.getElementById("primary-navigation"),
+        () => setMobileNavigationOpen(setMobileMenuOpen, false)
       );
-      const visibleElements = Array.from(focusableElements).filter(
-        (element) => element.getClientRects().length > 0
-      );
-
-      if (visibleElements.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const firstElement = visibleElements[0];
-      const lastElement = visibleElements[visibleElements.length - 1];
-
-      if (event.shiftKey && document.activeElement === firstElement) {
-        event.preventDefault();
-        lastElement.focus();
-      } else if (!event.shiftKey && document.activeElement === lastElement) {
-        event.preventDefault();
-        firstElement.focus();
-      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -297,7 +269,7 @@ export default function App() {
           isRefreshing={isRefreshing}
           refreshCooldownSeconds={refreshCooldownSeconds}
           onRefresh={() => loadAirQuality(selectedLocation, { forceRefresh: true })}
-          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          onOpenMobileMenu={() => setMobileNavigationOpen(setMobileMenuOpen, true)}
           mobileMenuOpen={mobileMenuOpen}
           mobileMenuButtonRef={mobileMenuButtonRef}
           showRefresh={
