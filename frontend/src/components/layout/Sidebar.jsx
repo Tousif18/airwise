@@ -86,7 +86,9 @@ export default function Sidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         id="primary-navigation"
+        role={mobileOpen && !isDesktop ? "dialog" : undefined}
         aria-label="Primary Navigation"
+        aria-modal={mobileOpen && !isDesktop ? true : undefined}
         inert={!isDesktop && !mobileOpen ? true : undefined}
       >
         {/* Brand header */}
