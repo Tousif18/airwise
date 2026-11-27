@@ -52,8 +52,7 @@ The Open-Meteo public APIs do not require an API key. Keep `GEMINI_API_KEY` priv
 | `GET` | `/api/v1/locations/presets` | Curated urban preset locations |
 | `GET` | `/api/v1/locations/search` | Open-Meteo geocoding city search |
 | `GET` | `/api/v1/air-quality` | Live/cached/unavailable Open-Meteo telemetry + CPCB AQI |
-| `GET` | `/api/v1/family/profile` | Fetch household profile (also aliased at `/api/v1/family-profile`) |
-| `PUT` | `/api/v1/family/profile` | Update household profile (also aliased at `/api/v1/family-profile`) |
+| — | — | Household profiles remain in browser localStorage and are sent only with the visitor’s relevant requests |
 | `GET` | `/api/v1/assistant/health` | Gemini readiness & deterministic fallback availability |
 | `POST` | `/api/v1/assistant/chat` | Conversational air-quality Q&A returning structured JSON |
 | `POST` | `/api/v1/assistant/recommendations` | Structured daily/focused family recommendations |
