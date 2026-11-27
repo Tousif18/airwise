@@ -8,6 +8,7 @@ export default function DashboardPage({
   presets,
   presetsLoading,
   presetsError,
+  onRetryPresets,
   selectedLocation,
   onSelectLocation,
   onSearchLocations,
@@ -35,6 +36,7 @@ export default function DashboardPage({
         presets={presets}
         presetsLoading={presetsLoading}
         presetsError={presetsError}
+        onRetryPresets={onRetryPresets}
         selectedLocation={selectedLocation}
         onSelectLocation={onSelectLocation}
         onSearchLocations={onSearchLocations}
