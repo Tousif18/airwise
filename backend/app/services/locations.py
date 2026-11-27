@@ -4,12 +4,15 @@ import asyncio
 from datetime import datetime, timezone
 import math
 import random
+import logging
 import httpx
 
 from app.core.config import Settings
 from app.schemas.air_quality import DataStatus, LocationOption, LocationSearchResponse
 from app.services.cache import AsyncRequestCoalescer, TTLCache
 from app.services.open_meteo import parse_retry_after_seconds
+
+logger = logging.getLogger(__name__)
 
 PRESET_LOCATIONS: list[LocationOption] = [
     LocationOption(
@@ -200,10 +203,14 @@ class LocationSearchService:
                             if delay > 0:
                                 await asyncio.sleep(delay)
                             continue
+                        logger.warning(
+                            "Open-Meteo geocoding request failed after retries (%s)",
+                            type(exc).__name__,
+                        )
                         return LocationSearchResponse(
                             locations=[],
                             data_status=DataStatus.UNAVAILABLE,
-                            error_detail=f"Location search unavailable: {exc}",
+                            error_detail="Location search is temporarily unavailable. Please try again.",
                         )
 
                     if response.status_code == 429:
@@ -246,10 +253,14 @@ class LocationSearchService:
                         response.raise_for_status()
                         payload = response.json()
                     except (httpx.HTTPError, ValueError) as exc:
+                        logger.warning(
+                            "Open-Meteo geocoding response could not be processed (%s)",
+                            type(exc).__name__,
+                        )
                         return LocationSearchResponse(
                             locations=[],
                             data_status=DataStatus.UNAVAILABLE,
-                            error_detail=f"Location search unavailable: {exc}",
+                            error_detail="Location search is temporarily unavailable. Please try again.",
                         )
                     break
 
