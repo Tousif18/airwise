@@ -32,6 +32,22 @@ function getLocationKey(loc) {
 export default function App() {
   const [activePage, setActivePage] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuButtonRef = useRef(null);
+  const mobileMenuCloseButtonRef = useRef(null);
+  const hasMountedRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+
+    if (mobileMenuOpen) {
+      mobileMenuCloseButtonRef.current?.focus();
+    } else {
+      mobileMenuButtonRef.current?.focus();
+    }
+  }, [mobileMenuOpen]);
 
   const [backendHealth, setBackendHealth] = useState(null);
   const [assistantStatus, setAssistantStatus] = useState(null);
@@ -202,6 +218,7 @@ export default function App() {
         mobileOpen={mobileMenuOpen}
         onToggleMobile={setMobileMenuOpen}
         backendHealth={backendHealth}
+        closeButtonRef={mobileMenuCloseButtonRef}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -221,6 +238,7 @@ export default function App() {
           onRefresh={() => loadAirQuality(selectedLocation, { forceRefresh: true })}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           mobileMenuOpen={mobileMenuOpen}
+          mobileMenuButtonRef={mobileMenuButtonRef}
           showRefresh={
             activePage === "dashboard" ||
             activePage === "assistant" ||
