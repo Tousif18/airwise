@@ -298,34 +298,14 @@ class GeminiAssistantService:
         )
 
     def format_fallback_reason(self, exc: Exception) -> str:
-        """Build a diagnostic, secret-free fallback reason string from an exception."""
+        """Return a safe, user-facing fallback reason without upstream details."""
         if isinstance(exc, asyncio.TimeoutError):
-            return (
-                f"Gemini request timed out after {self._settings.gemini_timeout_seconds:.0f}s; "
-                "returned deterministic rule-based guidance."
-            )
+            return "The AI assistant timed out; deterministic rule-based guidance was provided."
         if isinstance(exc, UnsafeAIResponseError):
-            return (
-                f"Gemini output failed safety guardrail validation ({exc}); "
-                "returned deterministic rule-based guidance."
-            )
+            return "The AI response did not pass safety checks; deterministic rule-based guidance was provided."
         if isinstance(exc, (ValidationError, json.JSONDecodeError, ValueError)):
-            return (
-                f"Gemini returned an invalid structured payload ({exc.__class__.__name__}); "
-                "returned deterministic rule-based guidance."
-            )
-        if isinstance(exc, genai_errors.APIError):
-            code = getattr(exc, "code", None)
-            status = getattr(exc, "status", None)
-            detail_parts = [p for p in (exc.__class__.__name__, str(code) if code else None, status) if p]
-            return (
-                f"Gemini API error ({' '.join(detail_parts)}); "
-                "returned deterministic rule-based guidance."
-            )
-        return (
-            f"Gemini service unavailable ({exc.__class__.__name__}); "
-            "returned deterministic rule-based guidance."
-        )
+            return "The AI assistant returned an invalid response; deterministic rule-based guidance was provided."
+        return "The AI assistant is temporarily unavailable; deterministic rule-based guidance was provided."
 
     async def generate_guidance(
         self,
