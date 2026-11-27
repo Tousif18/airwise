@@ -278,7 +278,11 @@ export default function App() {
         closeButtonRef={mobileMenuCloseButtonRef}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className="flex min-w-0 flex-1 flex-col"
+        aria-hidden={mobileMenuOpen ? true : undefined}
+        inert={mobileMenuOpen ? true : undefined}
+      >
         <HeaderBar
           title={currentNav.label}
           subtitle={
