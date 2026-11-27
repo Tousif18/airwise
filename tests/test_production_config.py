@@ -176,3 +176,50 @@ def test_readiness_does_not_require_gemini_or_live_upstream_access(monkeypatch) 
 def test_render_uses_readiness_endpoint_for_deployment_health_checks() -> None:
     render_config = (Path(__file__).resolve().parents[1] / "render.yaml").read_text()
     assert "healthCheckPath: /api/v1/health/ready" in render_config
+
+
+def test_request_logging_adds_correlation_id_and_excludes_sensitive_values(caplog) -> None:
+    client = TestClient(create_app())
+    secret_marker = "private-query-value"
+
+    with caplog.at_level("INFO", logger="airwise.requests"):
+        response = client.get(
+            "/api/v1/health",
+            params={"example": secret_marker},
+        )
+
+    assert response.status_code == 422
+    request_id = response.headers.get("X-Request-ID")
+    assert request_id
+    assert len(request_id) == 32
+    assert f"request_id={request_id}" in caplog.text
+    assert "method=GET" in caplog.text
+    assert "path=/api/v1/health" in caplog.text
+    assert "status_code=422" in caplog.text
+    assert "duration_ms=" in caplog.text
+    assert secret_marker not in caplog.text
+
+
+def test_request_logging_uses_a_new_id_for_each_request() -> None:
+    client = TestClient(create_app())
+
+    first = client.get("/api/v1/health/live")
+    second = client.get("/api/v1/health/live")
+
+    assert first.headers["X-Request-ID"] != second.headers["X-Request-ID"]
+
+
+def test_request_logging_does_not_log_request_headers_or_bodies(caplog) -> None:
+    client = TestClient(create_app())
+    secret_marker = "do-not-log-this-token"
+
+    with caplog.at_level("INFO", logger="airwise.requests"):
+        response = client.post(
+            "/api/v1/assistant/chat",
+            content=secret_marker,
+            headers={"Authorization": f"Bearer {secret_marker}"},
+        )
+
+    assert response.status_code in {400, 413, 422}
+    assert secret_marker not in caplog.text
+    assert response.headers.get("X-Request-ID")
