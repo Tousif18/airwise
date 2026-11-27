@@ -162,8 +162,11 @@ class AssistantLocationMixin(BaseModel):
 
     @model_validator(mode="after")
     def validate_coordinate_pair(self) -> "AssistantLocationMixin":
+        has_coordinates = self.latitude is not None and self.longitude is not None
         if (self.latitude is None) != (self.longitude is None):
             raise ValueError("Both latitude and longitude must be provided together.")
+        if self.location_id and has_coordinates:
+            raise ValueError("Choose either location_id or custom coordinates, not both.")
         return self
 
 
