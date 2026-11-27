@@ -15,6 +15,10 @@ __pycache__/
 venv/
 backend/.venv/
 backend/venv/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Node / Frontend
 node_modules/
@@ -22,6 +26,12 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 *.local
+
+# Deployment
+.vercel/
+
+# Logs
+*.log
 
 # IDE & OS
 .DS_Store
