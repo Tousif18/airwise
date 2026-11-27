@@ -121,7 +121,7 @@ export default function FamilyProfileCard({
       };
       await onSaveProfile(payload);
       setEditing(false);
-      setSaveMessage("Saved locally & synced");
+      setSaveMessage("Saved in this browser");
       setTimeout(() => setSaveMessage(null), 2500);
     } catch (err) {
       setFormError(err.message || "Failed to save profile");
@@ -154,7 +154,7 @@ export default function FamilyProfileCard({
               Family &amp; Household Profile
             </h2>
             <p className="text-xs text-slate-500">
-              Saved in localStorage &amp; synced to AirWise AI (no names or medical records requested).
+              Saved only in this browser. Your profile is sent with your AI requests and is not stored on the AirWise server.
             </p>
           </div>
         </div>
