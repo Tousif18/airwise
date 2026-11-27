@@ -4,7 +4,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.air_quality import DataStatus, ValueKind
-from app.schemas.location_validation import validate_timezone
+from app.schemas.location_validation import validate_coordinate, validate_timezone
 from app.schemas.assistant import (
     CurrentConditionsSummary,
     PriorityLevel,
