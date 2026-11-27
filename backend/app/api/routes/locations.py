@@ -6,12 +6,17 @@ from app.api.query_validation import reject_unknown_query_parameters
 
 from app.core.dependencies import get_location_search_service
 from app.schemas.air_quality import DataStatus, LocationSearchResponse
+from app.schemas.errors import ErrorResponse, RateLimitErrorResponse
 from app.services.locations import LocationSearchService, get_preset_locations
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-@router.get("/presets", response_model=LocationSearchResponse)
+@router.get(
+    "/presets",
+    response_model=LocationSearchResponse,
+    responses={422: {"model": ErrorResponse, "description": "Invalid query parameters."}},
+)
 async def list_preset_locations(request: Request) -> LocationSearchResponse:
     """Return curated urban locations for instant dashboard monitoring."""
     reject_unknown_query_parameters(request)
@@ -21,7 +26,14 @@ async def list_preset_locations(request: Request) -> LocationSearchResponse:
     )
 
 
-@router.get("/search", response_model=LocationSearchResponse)
+@router.get(
+    "/search",
+    response_model=LocationSearchResponse,
+    responses={
+        422: {"model": ErrorResponse, "description": "Invalid query parameters."},
+        429: {"model": RateLimitErrorResponse, "description": "Location search rate limit exceeded."},
+    },
+)
 async def search_city_locations(
     request: Request,
     q: str = Query(..., min_length=1, max_length=80, description="City or neighborhood name"),
