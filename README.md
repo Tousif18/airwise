@@ -185,7 +185,7 @@ The backend exposes versioned endpoints under `/api/v1`.
 | GET | `/api/v1/locations/presets` | Retrieve preset locations |
 | GET | `/api/v1/locations/search` | Search supported locations |
 | GET | `/api/v1/air-quality` | Retrieve air-quality information |
-| GET / PUT | `/api/v1/family/profile` | Read or update the household profile |
+| — | — | Household profiles are stored in each visitor’s browser and included in relevant AI requests |
 | GET | `/api/v1/assistant/health` | Check assistant readiness and fallback availability |
 | POST | `/api/v1/assistant/chat` | Send a question to the AI assistant |
 | POST | `/api/v1/assistant/recommendations` | Generate structured household recommendations |
