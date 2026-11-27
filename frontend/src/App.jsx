@@ -70,7 +70,8 @@ export default function App() {
       handleMobileNavigationKeyDown(
         event,
         document.getElementById("primary-navigation"),
-        () => setMobileNavigationOpen(setMobileMenuOpen, false)
+        () => setMobileNavigationOpen(setMobileMenuOpen, false),
+        document.activeElement
       );
     };
 
