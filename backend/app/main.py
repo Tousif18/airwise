@@ -1,8 +1,9 @@
 """FastAPI application entry point for the AirWise backend."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
@@ -57,7 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Return the standard validation details with a consistent error code."""
         return JSONResponse(
             status_code=422,
-            content={"detail": exc.errors(), "error_code": "validation_error"},
+            content={"detail": jsonable_encoder(exc.errors()), "error_code": "validation_error"},
         )
 
     app.add_middleware(
