@@ -1,7 +1,7 @@
 """Pydantic schemas for Phase 3: Indoor Air Quality Advisor."""
 
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.air_quality import DataStatus, ValueKind
 from app.schemas.location_validation import validate_timezone
@@ -47,6 +47,8 @@ class IndoorRecommendationCategory(str, Enum):
 
 
 class HomeEnvironmentProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     """User-provided home environment details (distinct from sensor readings)."""
 
     home_type: HomeType = HomeType.APARTMENT
