@@ -1,4 +1,5 @@
 import { InFlightRequestManager } from "../utils/requestControl";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").replace(
@@ -30,16 +31,19 @@ const getRequestManager = new InFlightRequestManager({
   defaultCacheTtlMs: 60_000,
 });
 
-async function requestJson(path, options = {}) {
+async function requestJson(path, options = {}, timeoutMs = 0) {
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    const fetchOptions = {
       headers: {
         "Content-Type": "application/json",
         ...(options.headers || {}),
       },
       ...options,
-    });
+    };
+    response = timeoutMs > 0
+      ? await fetchWithTimeout(`${API_BASE_URL}${path}`, fetchOptions, timeoutMs)
+      : await fetch(`${API_BASE_URL}${path}`, fetchOptions);
   } catch (networkErr) {
     const err = new Error(
       "Unable to reach the AirWise backend server. Please try again shortly."
@@ -175,17 +179,25 @@ export async function saveFamilyProfile(profile) {
 }
 
 export async function postAssistantChat(payload) {
-  return requestJson("/api/v1/assistant/chat", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return requestJson(
+    "/api/v1/assistant/chat",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    30_000
+  );
 }
 
 export async function postAssistantRecommendations(payload) {
-  return requestJson("/api/v1/assistant/recommendations", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return requestJson(
+    "/api/v1/assistant/recommendations",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    30_000
+  );
 }
 
 export async function postIndoorRecommendations(payload) {
